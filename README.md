@@ -10,7 +10,7 @@ Chris Munt <cmunt@mgateway.com>
 
 ## Overview
 
-**mgsi** is an Open Source network-based Service Integration Gateway (SIG) developed for InterSystems **Cache/IRIS** and the **YottaDB** database.  It will also work with the **GT.M** database and other **M-like** databases.  It's core function is to manage connectivity and process pooling for **M-like** databases.  The pooling services can be used by any of the client-facing technologies in this product servers (for example **mg\_php** and **mg\_go** etc ...)
+The M/Gateway Service Integration Gateway (**SIG**) is an Open Source network-based service developed for InterSystems **Cache/IRIS** and the **YottaDB** database.  It will also work with the **GT.M** database and other **M-like** databases.  Its core function is to manage connectivity, process and resource pooling for **M-like** databases.  The pooled resources can be used by any of the client-facing technologies in this product series (for example **mg\_php** and **mg\_go** etc ...).
 
 
 ## Pre-requisites
