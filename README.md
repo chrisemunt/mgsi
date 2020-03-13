@@ -30,7 +30,7 @@ There are three parts to the **SIG** installation and configuration.
 
 ### Building the SIG executable
 
-The **SIG** (**mgsi**) is written in standard C.  The GNU C compiler (gcc) can be used for Linux systems.
+The **SIG** (**mgsi**) is written in standard C.  The GNU C compiler (gcc) can be used for Linux systems:
 
 Ubuntu:
 
@@ -42,7 +42,7 @@ Red Hat and CentOS:
 
 Apple OS X can use the freely available **Xcode** development environment.
 
-Windows can use the free "Microsoft Visual Studio Community" edition of Visual Studio for building the **SIG**
+Windows can use the free "Microsoft Visual Studio Community" edition of Visual Studio for building the **SIG**:
 
 * Microsoft Visual Studio Community: [https://www.visualstudio.com/vs/community/](https://www.visualstudio.com/vs/community/)
 
@@ -192,11 +192,11 @@ Stopping the **SIG**:
 
        mgsi -stop
 
-When the **SIG** has been started for the first time is will register itself as a Windows Service.  Thereafter it can be managed from the Windows Services Control Panel if desired.
+When the **SIG** is started for the first time it will register itself as a Windows Service.  Thereafter it can be managed from the Windows Services Control Panel if desired.
 
 ## Using the SIG
 
-When the **SIG** is up and running it's services are immediately to participating components.  The **SIG** provides a web-based interface for the purposes of configuration and service management.  By default the **SIG** listens on TCP port 7040.  The web-based management suite may be accessed as follows.
+When the **SIG** is up and running its services are immediately available to participating clients.  The **SIG** provides a web-based user interface for the purpose of maintaining the configuration and service management.  By default the **SIG** listens on TCP port 7040.  The web-based management suite may be accessed as follows.
 
        http://[server]:7040/scripts/mgsig.mgw
 
@@ -223,8 +223,6 @@ Licensed under the Apache License, Version 2.0 (the "License"); you may not use 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.      
 
 ## <a name="RelNotes"></a>Release Notes
-
-3.0; Revision 1 (13 June 2019)
 
 ### v3.1.102 (13 March 2020)
 
