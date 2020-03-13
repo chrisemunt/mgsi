@@ -1,0 +1,75 @@
+# Microsoft Windows makefile for M/Gateway Service Integration Gateway (mgsi.exe)
+#
+# Build:
+# nmake -f Makefile.win
+#
+# Cleanup:
+# nmake -f Makefile.win clean
+#
+# Install:
+# nmake -f Makefile.win install
+
+
+# Microsoft C Compiler
+CC=cl.exe
+
+# Microsoft linker
+LINK=link.exe
+
+# Build mgmt.exe binary
+all : mgsi
+
+# Link the object file and dependent libraries into a binary
+mgsi : mgsiutl.obj mgsicfg.obj mgsidso.obj mgsireq.obj mgsidba.obj mgsitls.obj mgsiadm.obj mgsi.obj
+   $(LINK) /OUT:mgsi.exe mgsiutl.obj mgsicfg.obj mgsidso.obj mgsireq.obj mgsidba.obj mgsitls.obj mgsiadm.obj mgsi.obj \
+           /MANIFEST /NXCOMPAT /PDB:"mgsi.pdb" /DYNAMICBASE \
+           "kernel32.lib" "user32.lib" "gdi32.lib" "advapi32.lib" "uuid.lib" \
+           /MACHINE:X64 /INCREMENTAL:NO /SUBSYSTEM:CONSOLE \
+           /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /ERRORREPORT:PROMPT /NOLOGO \
+           /TLBID:1
+
+# Compile the source file into object file
+mgsi.obj : mgsi.c
+   $(CC) /Fomgsi.obj /GS /W3 /Gy /Zc:wchar_t /Zi /Gm- /O2 /Ob1 /fp:precise \
+         /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_VC80_UPGRADE=0x0710" /errorReport:prompt \
+         /GF /WX- /Zc:forScope /Gd /MT /FC /EHsc /c mgsi.c
+
+mgsiadm.obj : mgsiadm.c
+   $(CC) /Fomgsiadm.obj /GS /W3 /Gy /Zc:wchar_t /Zi /Gm- /O2 /Ob1 /fp:precise \
+         /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_VC80_UPGRADE=0x0710" /errorReport:prompt \
+         /GF /WX- /Zc:forScope /Gd /MT /FC /EHsc /c mgsiadm.c
+
+mgsiutl.obj : mgsiutl.c
+   $(CC) /Fomgsiutl.obj /GS /W3 /Gy /Zc:wchar_t /Zi /Gm- /O2 /Ob1 /fp:precise \
+         /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_VC80_UPGRADE=0x0710" /errorReport:prompt \
+         /GF /WX- /Zc:forScope /Gd /MT /FC /EHsc /c mgsiutl.c
+
+mgsidso.obj : mgsidso.c
+   $(CC) /Fomgsidso.obj /GS /W3 /Gy /Zc:wchar_t /Zi /Gm- /O2 /Ob1 /fp:precise \
+         /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_VC80_UPGRADE=0x0710" /errorReport:prompt \
+         /GF /WX- /Zc:forScope /Gd /MT /FC /EHsc /c mgsidso.c
+
+mgsireq.obj : mgsireq.c
+   $(CC) /Fomgsireq.obj /GS /W3 /Gy /Zc:wchar_t /Zi /Gm- /O2 /Ob1 /fp:precise \
+         /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_VC80_UPGRADE=0x0710" /errorReport:prompt \
+         /GF /WX- /Zc:forScope /Gd /MT /FC /EHsc /c mgsireq.c
+
+mgsidba.obj : mgsidba.c
+   $(CC) /Fomgsidba.obj /GS /W3 /Gy /Zc:wchar_t /Zi /Gm- /O2 /Ob1 /fp:precise \
+         /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_VC80_UPGRADE=0x0710" /errorReport:prompt \
+         /GF /WX- /Zc:forScope /Gd /MT /FC /EHsc /c mgsidba.c
+
+mgsitls.obj : mgsitls.c
+   $(CC) /Fomgsitls.obj /GS /W3 /Gy /Zc:wchar_t /Zi /Gm- /O2 /Ob1 /fp:precise \
+         /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_VC80_UPGRADE=0x0710" /errorReport:prompt \
+         /GF /WX- /Zc:forScope /Gd /MT /FC /EHsc /c mgsitls.c
+
+# Install mgsi binary
+install :
+   rem copy mgsi.exe c:\windows\
+
+# Clean target
+clean :
+   del mgsi.exe mgsi.exe.* mgsiutl.obj mgsicfg.obj mgsidso.obj mgsireq.obj mgsidba.obj mgsitls.obj mgsiadm.obj mgsi.obj mgsi.pdb mgsi.exp vc*.pdb
+
+
