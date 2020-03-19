@@ -10,12 +10,12 @@ Chris Munt <cmunt@mgateway.com>
 
 ## Overview
 
-The M/Gateway Service Integration Gateway (**SIG**) is an Open Source network-based service developed for InterSystems **Cache/IRIS** and the **YottaDB** database.  It will also work with the **GT.M** database and other **M-like** databases.  Its core function is to manage connectivity, process and resource pooling for **M-like** databases.  The pooled resources can be used by any of the client-facing technologies in this product series (for example **mg\_php** and **mg\_go** etc ...).
+The M/Gateway Service Integration Gateway (**SIG**) is an Open Source network-based service developed for InterSystems **Cache/IRIS** and the **YottaDB** Database Servers.  It will also work with the **GT.M** database and other **M-like** Databases Servers.  Its core function is to manage connectivity, process and resource pooling for **M-like** DB Servers.  The pooled resources can be used by any of the client-facing technologies in this product series (for example **mg\_php** and **mg\_go** etc ...).
 
 
 ## Pre-requisites
 
-InterSystems **Cache/IRIS** or **YottaDB** (or similar M database):
+InterSystems **Cache/IRIS** or **YottaDB** (or similar M DB Server):
 
        https://www.intersystems.com/
        https://yottadb.com/
@@ -30,7 +30,7 @@ There are three parts to the **SIG** installation and configuration.
 
 ### Building the SIG executable
 
-The **SIG** (**mgsi**) is written in standard C.  The GNU C compiler (gcc) can be used for Linux systems:
+The **SIG** (**mgsi** or **mgsi.exe**) is written in standard C.  The GNU C compiler (gcc) can be used for Linux systems:
 
 Ubuntu:
 
@@ -198,7 +198,7 @@ When the **SIG** is started for the first time it will register itself as a Wind
 
 When the **SIG** is up and running its services are immediately available to participating clients.  The **SIG** provides a web-based user interface for the purpose of maintaining the configuration and service management.  By default the **SIG** listens on TCP port 7040.  The web-based management suite may be accessed as follows.
 
-       http://[server]:7040/scripts/mgsig.mgw
+       http://[server]:7040/mgsi/mgsisys.mgw
 
 ## Resources used by zmgsi
 
