@@ -1,6 +1,6 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="26" zv="Cache for Windows (x86-64) 2019.1 (Build 192) Sun Nov 18 2018 23:37:14 EST" ts="2020-09-24 09:00:00">
-<Routine name="%zmgsi" type="INT" languagemode="0" timestamp="65646,38614"><![CDATA[
+Cache for Windows^INT^zmgsi^~Format=Cache.S~^RAW
+%RO on 24 Sep 2020 01:00 AM
+%zmgsi^INT^1^65646,38614.0^0
 %zmgsi ;(CM) Service Integration - Core Server
  ;
  ;  ----------------------------------------------------------------------------
@@ -333,10 +333,8 @@ ylink ; link all routines
  zlink "_zmgsis.m"
  q
  ;
-]]></Routine>
 
-
-<Routine name="%zmgsis" type="INT" languagemode="0" timestamp="65646,38614"><![CDATA[
+%zmgsis^INT^1^65646,38614.0^0
 %zmgsis ;(CM) Service Integration - Child Process
  ;
  ;  ----------------------------------------------------------------------------
@@ -2430,5 +2428,6 @@ sqldel(id,params) ; Delete SQL result set
  k ^mgsqls($j,id)
  q ""
  ;
-]]></Routine>
-</Export>
+
+
+
