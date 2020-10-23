@@ -9,8 +9,8 @@
  ;  |                                                                          |
  ;  | http://www.mgateway.com                                                  |
  ;  |                                                                          |
- ;  | Licensed under the Apache License, Version 2.0 (the "License"); you may  |
- ;  | not use this file except in compliance with the License.                 |
+ ;  | Licensed under the Apache License, Version 2.0 (the "License");          |
+ ;  | you may not use this file except in compliance with the License.         |
  ;  | You may obtain a copy of the License at                                  |
  ;  |                                                                          |
  ;  | http://www.apache.org/licenses/LICENSE-2.0                               |
@@ -34,17 +34,25 @@ a0 d vers q
  ; v2.3.13:   3 February  2019 (Add all-out to xdbc)
  ; v2.3.14:  18 March     2019 (Release as Open Source, Apache v2 license)
  ; v3.0.1:   13 June      2019 (Renamed to %zmgsi and %zmgsis)
- ; v3.1.2:   10 September 2019 (add protocol upgrade for mg_dba library - Go)
- ; v3.2.3:    1 November  2019 (add SQL interface)
+ ; v3.1.2:   10 September 2019 (Add protocol upgrade for mg_dba library - Go)
+ ; v3.2.3:    1 November  2019 (Add SQL interface)
  ; v3.2.4:    8 January   2020 (Add support for $increment to old protocol)
  ; v3.2.5:   17 January   2020 (Finalise the ifc interface)
  ; v3.2.6:    3 February  2020 (Send version of DB back to the client)
+ ; v3.2.7:    5 May       2020 (Add the 'Merge' command to the YottaDB API)
+ ; v3.3.8:   25 May       2020 (Add protocol upgrade for mg-dbx - TCP based connectivity from Node.js)
+ ; v3.3.9:   17 June      2020 (Add web protocol for mg_web. Support for nested ISC Object References)
+ ; v3.3.10:   7 July      2020 (Improve web protocol for mg_web)
+ ; v3.3.11:   3 August    2020 (Fix the stop^%zmgsi() facility. Fix a UNIX connectivity issue)
+ ; v3.4.12:  10 August    2020 (Introduce streamed write for mg_web; export the data-types for the SQL interface)
+ ; v3.5.13:  29 August    2020 (Introduce ASCII streamed write for mg_web; Introduce websocket support; reset ISC namespace after each web request)
+ ; v3.5.14:  24 September 2020 (Add a getdatetime() function)
  ;
 v() ; version and date
  n v,r,d
- s v="3.2"
- s r=6
- s d="3 February 2020"
+ s v="3.5"
+ s r=14
+ s d="24 September 2020"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -109,6 +117,25 @@ getsys() ; Get system type
  s systype=$s($$isidb()>2:"IRIS",$$isidb()=2:"Cache",$$isidb()=1:"ISM",$$ism21():"M21",$$ismsm():"MSM",$$isdsm():"DSM",$$isydb()>1:"YottaDB",$$isydb()=1:"GTM",1:"")
  q systype
  ;
+getmsl() ; Get maximum string length
+ n max
+ new $ztrap set $ztrap="zgoto "_$zlevel_":getmsle^%zmgsis"
+ q $$getmslx()
+getmsle ; error
+ q $$getmslx()
+ ;
+getmslx() ; Get maximum string length the hard way
+ n x,max
+ new $ztrap set $ztrap="zgoto "_$zlevel_":getmslxe^%zmgsis"
+ s x="" f max=1:1 s x=x_"a"
+getmslxe ; max string error
+ q (max-1)
+ ;
+getdatetime(h) ; Get the date and time in text form
+ n dt
+ s dt=$zd(h)_" "_$$dtime($p(h,",",2),1)
+ q dt
+ ;
 vars ; public  system variables
  ;
  ; the following variables can be modified in accordance with the documentation
@@ -136,8 +163,8 @@ esize(esize,size,base)
  s esize=size
  q $l(esize)
 esize1 ; up to base 62
- s esize=$$ebase62(size#base)
- f i=1:1 s x=(size\(base**i)) q:'x  s esize=$$ebase62(x#base)_esize
+ s esize=$$ebase62(size#base,base)
+ f i=1:1 s x=(size\(base**i)) q:'x  s esize=$$ebase62(x#base,base)_esize
  q $l(esize)
  ;
 dsize(esize,len,base)
@@ -147,18 +174,18 @@ dsize(esize,len,base)
  q size
 dsize1 ; up to base 62
  s size=0
- f i=len:-1:1 s x=$e(esize,i) s size=size+($$dbase62(x)*(base**(len-i)))
+ f i=len:-1:1 s x=$e(esize,i) s size=size+($$dbase62(x,base)*(base**(len-i)))
  q size
  ;
-ebase62(n10) ; encode to single digit (up to) base-62 number
+ebase62(n10,base) ; encode to single digit (up to) base-62 number
  i n10'<0,n10<10 q $c(48+n10)
  i n10'<10,n10<36 q $c(65+(n10-10))
  i n10'<36,n10<62 q $c(97+(n10-36))
  q ""
  ;
-dbase62(nxx) ; decode single digit (up to) base-62 number
+dbase62(nxx,base) ; decode single digit (up to) base-62 number
  n x
- s x=$a(nxx)
+ s x=$a(nxx) i base<17,x'<97 s x=x-32
  i x'<48,x<58 q (x-48)
  i x'<65,x<91 q ((x-65)+10)
  i x'<97,x<123 q ((x-97)+36)
@@ -251,8 +278,9 @@ inetde ; error
 ifc(ctx,request,param) ; entry point from fixed binding
  n %zcs,clen,hlen,result,rlen,abyref,anybyref,argc,array,buf,byref,cmnd,dakey,darec,ddata,deod,eod,esize,extra,fun,global,hlen,maxlen,mqinfo,nato,offset,ok,oversize,pcmnd,rdxbuf,rdxptr,rdxrlen,rdxsize,ref,refn,mreq1,req,req1,req2,req3,res,size,sl,slen,sn,sysp,type,uci,var,version,x
  new $ztrap set $ztrap="zgoto "_$zlevel_":ifce^%zmgsis"
- d vars
  i param["$zv" q $zv
+ i param["dbx" q $$dbx(ctx,$e(request,5),$e(request,6,9999),$$dsize256(request),param)
+ d vars
  s %zcs("ifc")=1
  s argc=1,array=0,nato=0
  k ^%zmg("mpc",$j),^mgsi($j)
@@ -354,7 +382,7 @@ child3 ; read request
  i x=0 d halt ; client disconnect
  i buf="xDBC" g main^%mgsqln
  i buf?1u.e1"HTTP/"1n1"."1n1c s buf=buf_$c(10) g main^%mgsqlw
- i $e(buf,1,4)="dbx1" d dbx^%zmgsis(buf) g halt
+ i $e(buf,1,4)="dbx1" d dbxnet^%zmgsis(buf) g halt
  s type=0,byref=0 d req1 s @var=buf
  s cmnd=$p(buf,"^",2)
  s hlen=$l(buf),clen=0
@@ -581,15 +609,20 @@ ddate(date) ; decode m date
 ddatee ; no $zd function
  q date
  ;
-dtime(time) ; decode m time
- q (time\3600)_":"_(time#3600\60)
+dtime(mtime,format) ; decode m time
+ n h,m,s
+ i mtime="" q ""
+ i mtime["," s mtime=$p(mtime,",",2)
+ i format=0 q (mtime\3600)_":"_(mtime#3600\60)
+ s h=mtime\3600,s=mtime-(h*3600),m=s\60,s=s#60
+ q $s(h<10:"0",1:"")_h_":"_$s(m<10:"0",1:"")_m_":"_$s(s<10:"0",1:"")_s
  ;
 head() ; format header record
  n %uci
  new $ztrap set $ztrap="zgoto "_$zlevel_":heade^%zmgsis"
  s %uci=$$getuci()
 heade ; error
- q $$ddate(+$h)_" at "_$$dtime($p($h,",",2))_"~"_$g(%zcs("port"))_"~"_%uci
+ q $$ddate(+$h)_" at "_$$dtime($p($h,",",2),0)_"~"_$g(%zcs("port"))_"~"_%uci
  ;
 hmacsha256(string,key,b64,context) ; hmac-sha256
  q $$crypt("127.0.0.1",$s(context:80,1:7040),"hmac-sha256",string,key,b64,context)
@@ -1335,6 +1368,7 @@ seterror(v) ; set error
  q
  ;
 getuci() ; get namespace/uci
+ n %uci
  new $ztrap set $ztrap="zgoto "_$zlevel_":getucie^%zmgsis"
  s %uci=$zg
  q %uci
@@ -1446,23 +1480,14 @@ sst(%0) ; save symbol table
 sste ; error
  q 0
  ;
-dbx(buf) ; new wire protocol for access to M
- n %oref,abyref,argc,array,cmnd,conc,dakey,darec,ddata,deod,extra,global,i,maxlen,mqinfo,nato,offset,ok,oref,oversize,pcmnd,port,pport,rdxbuf,rdxptr,rdxrlen,rdxsize,req,res,sl,slen,sn,sort,type,uci,var,version,x
- s uci=$p(buf,"~",2)
- i uci'="" d uci(uci)
- s res=$zv
- s res=$$esize256($l(res))_"0"_res
- w res d flush
-dbx1 ; test
- r head#5
- s len=$$dsize256(head)
- s len=len-5
- s cmnd=$e(head,5)
- r data#len
+dbx(ctx,cmnd,data,len,param) ; entry point from fixed binding
+ n %r,obufsize,idx,offset,rc,sort,res,ze,oref,type
+ new $ztrap set $ztrap="zgoto "_$zlevel_":dbxe^%zmgsis"
  s obufsize=$$dsize256($e(data,1,4))
  s idx=$$dsize256($e(data,6,9))
- k %r s offset=11 f %r=1:1:64 s %r(%r,0)=$$dsize256($e(data,offset,offset+3)) d  i '$d(%r(%r)) s %r=%r-1 q
+ k %r s offset=11 f %r=1:1 s %r(%r,0)=$$dsize256($e(data,offset,offset+3)) d  i '$d(%r(%r)) s %r=%r-1 q
  . s %r(%r,1)=$a(data,offset+4)\20,%r(%r,2)=$a(data,offset+4)#20 i %r(%r,1)=9 k %r(%r) q
+ . i %r(%r,1)=-1 k %r(%r) q
  . s %r(%r)=$e(data,offset+5,offset+5+(%r(%r,0)-1))
  . s offset=offset+5+%r(%r,0)
  . q
@@ -1470,34 +1495,93 @@ dbx1 ; test
  i rc=0 s sort=1 ; data
  i rc=-1 s sort=11 ; error
  s type=1 ; string
+ i $g(%r(1))="dbxweb^%zmgsis",res=$c(255,255,255,255) q res
  s res=$$esize256($l(res))_$c((sort*20)+type)_res
+ q res
+dbxe ; Error
+ s ze=$$error()
+ q -1
+ ;
+dbxnet(buf) ; new wire protocol for access to M
+ n %oref,abyref,argc,array,cmnd,conc,dakey,darec,ddata,deod,extra,global,i,maxlen,mqinfo,nato,offset,ok,oref,oversize,pcmnd,port,pport,rdxbuf,rdxptr,rdxrlen,rdxsize,req,res,sl,slen,sn,sort,type,uci,var,version,x
+ s uci=$p(buf,"~",2)
+ i uci'="" d uci(uci)
+ s res=$zv
+ s res=$$esize256($l(res))_"0"_res
  w res d flush
- g dbx1
+dbxnet1 ; test
+ r head#5
+ s len=$$dsize256(head)
+ s len=len-5
+ s cmnd=$e(head,5)
+ i len>$$getmsl() s res="DB Server string size exceeded ("_$$getmsl()_")",sort=11,type=1,res=$$esize256($l(res))_$c((sort*20)+type)_res w res d flush c $io h
+ r data#len
+ s res=$$dbx(0,cmnd,data,len,"")
+ w res d flush
+ g dbxnet1
  ;
 dbxcmnd(%r,%oref,cmnd,res) ; Execute command
+ n %io,buf,data,head,idx,len,obufsize,offset,rc,uci,data,sort,type
  new $ztrap set $ztrap="zgoto "_$zlevel_":dbxcmnde^%zmgsis"
- n buf,data,head,idx,len,obufsize,offset,rc,uci
  s res=""
  i cmnd=2 s res=0 q 0
  i cmnd=3 s res=$$getuci() q 0
  i cmnd=4 d uci(%r(1)) s res=$$getuci() q 0
- i cmnd=11 s @(%r(1)_$$dbxref(.%r,2,%r-1,0))=%r(%r),res=0 q 0
- i cmnd=12 s res=$g(@(%r(1)_$$dbxref(.%r,2,%r,0))) q 0
- i cmnd=13 s res=$o(@(%r(1)_$$dbxref(.%r,2,%r,0))) q 0
- i cmnd=14 s res=$o(@(%r(1)_$$dbxref(.%r,2,%r,0)),-1) q 0
- i cmnd=15 k @(%r(1)_$$dbxref(.%r,2,%r,0)) s res=0 q 0
- i cmnd=16 s res=$d(@(%r(1)_$$dbxref(.%r,2,%r,0))) q 0
- i cmnd=17 s res=$i(@(%r(1)_$$dbxref(.%r,2,%r-1,0)),%r(%r)) q 0
+ i cmnd=11 s @($$dbxglo(%r(1))_$$dbxref(.%r,2,%r-1,0))=%r(%r),res=0 q 0
+ i cmnd=12 s res=$g(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0))) q 0
+ i cmnd=13 s res=$o(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0))) q 0
+ i cmnd=131 d  q 0
+ . s res=$o(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)))
+ . s data="" i res'="" s data=$g(^(res))
+ . s sort=1,type=1
+ . s res=$$esize256($l(res))_$c((sort*20)+type)_res_$$esize256($l(data))_$c((sort*20)+type)_data
+ . q
+ i cmnd=14 s res=$o(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)),-1) q 0
+ i cmnd=141 d  q 0
+ . s res=$o(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)),-1)
+ . s data="" i res'="" s data=$g(^(res))
+ . s sort=1,type=1
+ . s res=$$esize256($l(res))_$c((sort*20)+type)_res_$$esize256($l(data))_$c((sort*20)+type)_data
+ . q
+ i cmnd=15 k @($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)) s res=0 q 0
+ i cmnd=16 s res=$d(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0))) q 0
+ i cmnd=17 s res=$i(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r-1,0)),%r(%r)) q 0
+ i cmnd=20 d  q 0
+ . n i1,i2,r1,r2
+ . s (i1,i2)=1 f i=2:1 q:'$d(%r(i))  i $g(%r(i,1))=3 s i2=i q
+ . s r1=$$dbxglo(%r(i1))_$$dbxref(.%r,i1+1,i2-1,0)
+ . s r2=$$dbxglo(%r(i2))_$$dbxref(.%r,i2+1,%r,0)
+ . m @r1=@r2
+ . q
+ i cmnd=21 s res=$q(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0))) q 0
+ i cmnd=211 d  q 0
+ . s res=$q(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)))
+ . s data="" i res'="" s data=$g(@res)
+ . s sort=1,type=1
+ . s res=$$esize256($l(res))_$c((sort*20)+type)_res_$$esize256($l(data))_$c((sort*20)+type)_data
+ . q
+ i cmnd=22 s res=$q(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)),-1) q 0
+ i cmnd=221 d  q 0
+ . s res=$q(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)),-1)
+ . s data="" i res'="" s data=$g(@res)
+ . s sort=1,type=1
+ . s res=$$esize256($l(res))_$c((sort*20)+type)_res_$$esize256($l(data))_$c((sort*20)+type)_data
+ . q
  i cmnd=31 s res=$$dbxfun(.%r,"$$"_%r(1)_"("_$$dbxref(.%r,2,%r,1)_")") q 0
+ i cmnd=51 s res=$o(@%r(1)) q 0
+ i cmnd=52 s res=$o(@%r(1),-1) q 0
  s res="<SYNTAX>"
  q -1
 dbxcmnde ; Error
- s ze=$$error()
+ s res=$$error()
  q -1
+ ;
+dbxglo(glo) ; Generate global name
+ q $s($e(glo,1)="^":glo,1:"^"_glo)
  ;
 dbxref(%r,strt,end,ctx) ; Generate reference
  n i,ref,com
- s ref="",com="" f i=strt:1:end s ref=ref_com_"%r("_i_")",com=","
+ s ref="",com="" f i=strt:1:end s ref=ref_com_$s($g(%r(i,2))=7:"$g(%oref(%r("_i_")))",1:"%r("_i_")"),com=","
  i ctx=0,ref'="" s ref="("_ref_")"
  q ref
  ;
@@ -1516,10 +1600,163 @@ dbxmeth(%r,meth) ; Execute function
  s @("res=$Method("_meth_")")
  q res
  ;
+dbxweb(ctx,data,param) ; mg_web function invocation
+ n %r,%cgi,%var,%sys,offset,ok,sort,type,item,no,res,len,uci
+ new $ztrap set $ztrap="zgoto "_$zlevel_":dbxwebe^%zmgsis"
+ s no=0
+ s offset=1,ok=1 f %r=1:1 s len=$$dsize256($e(data,offset,offset+3)) d  i 'ok s %r=%r-1 q
+ . s sort=$a(data,offset+4)\20,type=$a(data,offset+4)#20 i sort=9 s ok=0 q
+ . i sort=-1 s ok=0 q
+ . s item=$e(data,offset+5,offset+5+(len-1))
+ . s offset=offset+5+len
+ . i sort=5 s name=$p(item,"=",1),value=$p(item,"=",2,9999) i name'="" s %cgi(name)=value
+ . i sort=6 s %var=item
+ . i sort=7 s name=$p(item,"=",1),value=$p(item,"=",2,9999) i name'="" s %var(name)=value
+ . i sort=8 s name=$p(item,"=",1),value=$p(item,"=",2,9999) i name'="" s %sys(name)=value
+ . q
+ s %sys("no")=$$dsize256($g(%sys("no")))
+ s no=$g(%sys("no"))+0
+ i $g(%sys("wsfunction"))'="" q $$mgwebsock(.%cgi,.%var,.%sys)
+ i $g(%sys("function"))="" q $$esize256(no)_$c(0)_$$mgweb(.%cgi,.%var,.%sys)
+ s uci=$$getuci()
+ s res=$$dbxweb1(.%cgi,.%var,.%sys)
+ i '$g(%sys("stream")) q $$esize256(no)_$c(0)_res
+ s len=$l(res) i len d
+ . i $g(%sys("stream"))=1 d writex(res,len) q
+ . w res
+ . q
+ d streamx(.%sys)
+ q $c(255,255,255,255)
+dbxwebe ; Error
+ s res=$$error()
+ d event(res)
+ i '$g(%sys("stream")) q $$esize256($g(no)+0)_$c(0)_res
+ ; with streamed output we must halt and close connection
+ i $g(%sys("stream"))=1 d writex(res,$l(res))
+ i $g(%sys("stream"))=2 w res
+ d streamx(.%sys) w $c(255,255,255,255) d flush
+ h
+ ;
+dbxweb1(%cgi,%var,%sys)
+ n (%cgi,%var,%sys)
+ q @("$$"_%sys("function")_"(.%cgi,.%var,.%sys)")
+ ;
+mgweb(%cgi,%var,%sys)
+ n %r,offset,ok,x,sort,type,item,ctx,fun,len,name,value,request,data,param,no,header,content
+ s header="HTTP/1.1 200 OK"_$c(13,10)_"Content-type: text/html"_$c(13,10)_"Connection: close"_$c(13,10)_$c(13,10)
+ s content="<html>"_$c(13,10)_"<head><title>It Works</title></head>"_$c(13,10)_"<h1>It Works!</h1>"_$c(13,10)
+ s content=content_"%zmgsi: v"_$p($$v(),".",1,3)_" ("_$zd(+$h,2)_")"_$c(13,10)
+ s content=content_"database: "_$zv_$c(13,10)
+ s content=content_"</html>"_$c(13,10)
+ q (header_content)
+ ;
+mgwebsock(%cgi,%var,%sys)
+ n (%cgi,%var,%sys)
+ new $ztrap set $ztrap="zgoto "_$zlevel_":mgwebsocke^%zmgsis"
+ s @("res="_"$$"_%sys("wsfunction")_"(.%cgi,.%var,.%sys)")
+ d flush^%zmgsis
+ h
+mgwebsocke ; Error
+ s res="HTTP/2 200 OK"_$c(13,10)_"Error: "_$$error()_$c(13,10,13,10)
+ w $$esize256^%zmgsis($l(res)+5)_$c(0)_$$esize256^%zmgsis(($g(%sys("no"))+0))_$c(0)_res d flush^%zmgsis
+ h
+ ;
+websocket(%sys,binary,options)
+ n res
+ s res="HTTP/2 200 OK"_$c(13,10)_"Binary: "_($g(binary)+0)_$c(13,10,13,10)
+ w $$esize256^%zmgsis($l(res)+5)_$c(0)_$$esize256^%zmgsis(($g(%sys("no"))+0))_$c(0)_res d flush^%zmgsis
+ q ""
+ ;
+stream(%sys) ; set up device for streaming the response (block/binary protocol)
+ n %stream
+ s %stream=""
+ s %sys("stream")=1
+ w $c(0,0,0,0,0)_$$esize256(($g(%sys("no"))+0))_$c(1) d flush
+ q %stream
+ ;
+streamascii(%sys) ; set up device for streaming the response (ASCII protocol)
+ n %stream
+ s %stream=""
+ s %sys("stream")=2
+ w $c(0,0,0,0,0)_$$esize256(($g(%sys("no"))+0))_$c(2) d flush
+ q %stream
+ ;
+streamx(%sys)
+ d flush
+ i $g(%sys("stream"))=2 q
+ q
+ ;
+write(%stream,content) ; write out response payload
+ n len1,len2,len3
+ s len1=$l(%stream)
+ s len2=$l(content)
+ i (len1+len2)<8192 s %stream=%stream_content q
+ s len3=(8192-len1) i len3<0 s len3=0 
+ i len3 s %stream=%stream_$e(content,1,len3),content=$e(content,len3+1,len2),len1=len1+len3
+ d writex(%stream,len1)
+ s %stream=content
+ q
+ ;
+writex(content,len) ; write out response payload
+ w $$esize256(len)_content
+ q
+ ;
+w(%stream,content) ; write out response payload
+ d write(.%stream,content)
+ q
+ ;
+nvpair(%nv,%payload)
+ n i,x,def,name,value,value1
+ f i=1:1:$l(%payload,"&") s x=$p(%payload,"&",i),name=$$urld($p(x,"=",1)),value=$$urld($p(x,"=",2)) i name'="" d
+ . s def=$d(%nv(name))
+ . i 'def s %nv(name)=value q
+ . i def#10 s value1=$g(%nv(name)) k %nv(name) s %nv(name,1)=value1,%nv(name,2)=value q
+ . s %nv(name,$o(%nv(name,""),-1)+1)=value q
+ . q
+ q 1
+ ;
+urld(%val) ; URL decode (unescape)
+ new $ztrap set $ztrap="zgoto "_$zlevel_":urlde^%zmgsis"
+ q $$urldx(%val)
+urlde ; error
+ q $$urldx(%val)
+ ;
+urldx(%val) ; URL deoode the long way
+ n i,c,%vald
+ s %vald=""
+ f i=1:1:$l(%val) s c=$e(%val,i) d
+ . i c="+" s %vald=%vald_" " q
+ . i c="%" s %vald=%vald_$c($$dsize($e(%val,i+1,i+2),2,16)),i=i+2 q
+ . s %vald=%vald_c
+ . q 
+ q %vald
+ ;
+urle(%val) ; URL encode (escape)
+ new $ztrap set $ztrap="zgoto "_$zlevel_":urlee^%zmgsis"
+ q $$urlex(%val)
+urlee ; error
+ q $$urlex(%val)
+ ;
+urlex(%val) ; URL encode the long way
+ n i,c,a,len,%vale
+ s %vale=""
+ f i=1:1:$l(%val) s c=$e(%val,i) d
+ . s a=$a(c)
+ . i a'<48,a'>57 s %vale=%vale_c q
+ . i a'<65,a'>90 s %vale=%vale_c q
+ . i a'<97,a'>122 s %vale=%vale_c q
+ . s len=$$esize(.c,a,16)
+ . s %vale=%vale_"%"_c q
+ . q 
+ q %vale
+ ;
+odbcdt(x) ; Translate ODBC data type code to readable form
+ q $s(x=0:"Unknown",x=1:"CHAR",x=2:"NUMERIC",x=3:"DECIMAL",x=4:"INTEGER",x=5:"SMALLINT",x=6:"FLOAT",x=7:"REAL",x=8:"DOUBLE",x=9:"DATE",x=10:"TIME",x=11:"TIMESTAMP",x=12:"VARCHAR",x=-11:"GUID",x=-10:"WLONGVARCHAR",x=-9:"WVARCHAR",x=-7:"BIT",x=-6:"TINYINT",x=-5:"BIGINT",x=-4:"LONGVARBINARY",x=-3:"VARBINARY",x=-2:"BINARY",x=-1:"LONGVARCHAR",1:"")
+ ;
  ; s x=$$sqleisc^%zmgsis(0,"SELECT * FROM SQLUser.customer","")
 sqleisc(id,sql,params) ; Execute InterSystems SQL query
  new $ztrap set $ztrap="zgoto "_$zlevel_":sqleisce^%zmgsis"
- n %objlasterror,result,error,data,status,tsql,cn,col,rset,rn,n,sort,type
+ n %objlasterror,result,error,data,status,tsql,cn,col,type,dtype,rset,rn,n,sort,type
  k ^mgsqls($j,id)
  s result="0",error="",data="",cn=0
  s error="InterSystems SQL not available with YottaDB" g sqleisce1
@@ -1534,7 +1771,7 @@ sqleisce1 ; SQL error
  ; s x=$$sqlemg^%zmgsis(0,"select * from patient","")
 sqlemg(id,sql,params) ; Execute MGSQL SQL query
  new $ztrap set $ztrap="zgoto "_$zlevel_":sqlemge^%zmgsis"
- n %zi,%zo,result,error,data,cn,n,col,ok,sort,type,v
+ n %zi,%zo,result,error,data,cn,n,col,type,ok,sort,type,v
  s result="0",error="",data="",cn=0
  s %zi("stmt")=id
  s v=$$sqlmgv() i v="" s error="MGSQL not installed" g sqlemge1
@@ -1545,7 +1782,10 @@ sqlemg(id,sql,params) ; Execute MGSQL SQL query
  . i col["." s col=$p(col,".",2)
  . s col=$tr(col,"-_.;","")
  . i col="" s col="column_"_n
+ . s type=$s($d(%zo(0,n,0)):$g(%zo(0,n,0)),1:"varchar")
  . s ^mgsqls($j,%zi("stmt"),0,0,n)=col
+ . s ^mgsqls($j,%zi("stmt"),0,0,n,0)=type
+ . s col=col_"|"_type
  . s data=data_$$esize256($l(col))_$c((sort*20)+type)_col
  . q
  s cn=n-1
