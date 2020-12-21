@@ -3,9 +3,9 @@
 M/Gateway Service Integration Gateway (**SIG**) for InterSystems **Cache/IRIS** and **YottaDB**.
 
 Chris Munt <cmunt@mgateway.com>  
-13 March 2020, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
+21 December 2020, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
-* Current Release: Version: 3.1; Revision 102.
+* Current Release: Version: 3.1; Revision 102a.
 * [Release Notes](#RelNotes) can be found at the end of this document.
 
 ## Overview
@@ -75,25 +75,25 @@ Change to your development UCI and check the installation:
        do ^%zmgsi
 
        M/Gateway Developments Ltd - Service Integration Gateway
-       Version: 3.2; Revision 6 (3 February 2020)
+       Version: 3.6; Revision 15 (6 November 2020)
 
 ### YottaDB
 
 The instructions given here assume a standard 'out of the box' installation of **YottaDB** deployed in the following location:
 
-       /usr/local/lib/yottadb/r122
+       /usr/local/lib/yottadb/r130
 
 The primary default location for routines:
 
-       /root/.yottadb/r1.22_x86_64/r
+       /root/.yottadb/r1.30_x86_64/r
 
 Copy all the routines (i.e. all files with an 'm' extension) held in the GitHub **/yottadb** directory to:
 
-       /root/.yottadb/r1.22_x86_64/r
+       /root/.yottadb/r1.30_x86_64/r
 
 Change directory to the following location and start a **YottaDB** command shell:
 
-       cd /usr/local/lib/yottadb/r122
+       cd /usr/local/lib/yottadb/r130
        ./ydb
 
 Link all the **zmgsi** routines and check the installation:
@@ -103,7 +103,7 @@ Link all the **zmgsi** routines and check the installation:
        do ^%zmgsi
 
        M/Gateway Developments Ltd - Service Integration Gateway
-       Version: 3.2; Revision 6 (3 February 2020)
+       Version: 3.6; Revision 15 (6 November 2020)
 
 
 Note that the version of **zmgsi** is successfully displayed.
@@ -125,17 +125,22 @@ To use a server TCP port other than 7041, specify it in the start-up command (as
 
 Network connectivity to **YottaDB** is managed via the **xinetd** service.  First create the following launch script (called **zmgsi\_ydb** here):
 
-       /usr/local/lib/yottadb/r122/zmgsi_ydb
+       /usr/local/lib/yottadb/r130/zmgsi_ydb
 
 Content:
 
        #!/bin/bash
-       cd /usr/local/lib/yottadb/r122
+       cd /usr/local/lib/yottadb/r130
        export ydb_dir=/root/.yottadb
-       export ydb_dist=/usr/local/lib/yottadb/r122
-       export ydb_routines="/root/.yottadb/r1.22_x86_64/o*(/root/.yottadb/r1.22_x86_64/r /root/.yottadb/r) /usr/local/lib/yottadb/r122/libyottadbutil.so"
-       export ydb_gbldir="/root/.yottadb/r1.22_x86_64/g/yottadb.gld"
-       $ydb_dist/ydb -r xinetd^%zmgsi
+       export ydb_dist=/usr/local/lib/yottadb/r130
+       export ydb_routines="/root/.yottadb/r1.30_x86_64/o*(/root/.yottadb/r1.30_x86_64/r /root/.yottadb/r) /usr/local/lib/yottadb/r130/libyottadbutil.so"
+       export ydb_gbldir="/root/.yottadb/r1.30_x86_64/g/yottadb.gld"
+       $ydb_dist/ydb -r xinetd^%zmgsis
+
+Note that you should, if necessary, modify the permissions on this file so that it is executable.  For example:
+
+       chmod a=rx /usr/local/lib/yottadb/r130/zmgsi_ydb
+
 
 Create the **xinetd** script (called **zmgsi\_xinetd** here): 
 
@@ -151,7 +156,7 @@ Content:
             socket_type     = stream
             wait            = no
             user            = root
-            server          = /usr/local/lib/yottadb/r122/zmgsi_ydb
+            server          = /usr/local/lib/yottadb/r130/zmgsi_ydb
        }
 
 * Note: sample copies of **zmgsi\_xinetd** and **zmgsi\_ydb** are included in the **/unix** directory.
@@ -227,3 +232,7 @@ Unless required by applicable law or agreed to in writing, software distributed 
 ### v3.1.102 (13 March 2020)
 
 * Initial Release
+
+### v3.1.102a (21 December 2020)
+
+* Updates to the documentation.
