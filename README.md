@@ -66,11 +66,11 @@ Invoke the build procedure from the /src directory (i.e. the directory containin
 
 ### InterSystems Cache/IRIS
 
-Log in to the Manager UCI and install the **zmgsi** routines held in either **/m/zmgsi\_cache.xml** or **/m/zmgsi\_iris.xml** as appropriate.
+Log in to the %SYS Namespace and install the **zmgsi** routines held in **/isc/zmgsi\_isc.ro**.
 
-       do $system.OBJ.Load("/m/zmgsi_cache.xml","ck")
+       do $system.OBJ.Load("/isc/zmgsi_isc.ro","ck")
 
-Change to your development UCI and check the installation:
+Change to your development Namespace and check the installation:
 
        do ^%zmgsi
 
