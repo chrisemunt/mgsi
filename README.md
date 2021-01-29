@@ -6,6 +6,7 @@ Chris Munt <cmunt@mgateway.com>
 21 December 2020, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
 * Current Release: Version: 3.1; Revision 102a.
+* SuperServer (%zmgsi routines) Release: Version: 3.6; Revision 15 (6 November 2020).
 * [Release Notes](#RelNotes) can be found at the end of this document.
 
 ## Overview
@@ -213,7 +214,7 @@ The **zmgsi** server-side code will write to the following global:
 
 ## License
 
-Copyright (c) 2018-2020 M/Gateway Developments Ltd,
+Copyright (c) 2018-2021 M/Gateway Developments Ltd,
 Surrey UK.                                                      
 All rights reserved.
  
