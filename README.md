@@ -5,7 +5,7 @@ M/Gateway Service Integration Gateway (**SIG**) for InterSystems **Cache/IRIS** 
 Chris Munt <cmunt@mgateway.com>  
 21 December 2020, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
-* Current Release: Version: 3.1; Revision 102a.
+* Current Release: Version: 3.1; Revision 102a (21 December 2020).
 * SuperServer (%zmgsi routines) Release: Version: 3.6; Revision 15 (6 November 2020).
 * [Release Notes](#RelNotes) can be found at the end of this document.
 
