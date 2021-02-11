@@ -14,10 +14,10 @@ Contents
 * [Overview](#Overview") 
 * [Pre-requisites](#PreReq") 
 * [Installing the DB Superserver](#InstallSS)
-* [Starting the DB Superserver](StartSS)
+* [Starting the DB Superserver](#StartSS)
 * [Installing the SIG](#InstallSIG)
 * [Starting the SIG](#StartSIG)
-* [Using the SIG](#UseSIG)
+* [Using the SIG](#UsingSIG)
 * [Resources used by the DB Superserver](#Resources)
 * [License](#License)
 
