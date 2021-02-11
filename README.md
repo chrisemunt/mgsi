@@ -3,71 +3,49 @@
 M/Gateway Service Integration Gateway (**SIG**) for InterSystems **Cache/IRIS** and **YottaDB**.
 
 Chris Munt <cmunt@mgateway.com>  
-21 December 2020, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
+11 February 2021, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
 * Current Release: Version: 3.1; Revision 102a (21 December 2020).
-* SuperServer (%zmgsi routines) Release: Version: 3.6; Revision 15 (6 November 2020).
+* SuperServer (%zmgsi routines) Release: Version: 4.0; Revision 16 (11 February 2021).
 * [Release Notes](#RelNotes) can be found at the end of this document.
 
-## Overview
+Contents
+
+* [Overview](#Overview") 
+* [Pre-requisites](#PreReq") 
+* [Installing the DB Superserver](#InstallSS)
+* [Starting the DB Superserver](StartSS)
+* [Installing the SIG](#InstallSIG)
+* [Starting the SIG](#StartSIG)
+* [Using the SIG](#UseSIG)
+* [Resources used by the DB Superserver](#Resources)
+* [License](#License)
+
+## <a name="Overview"></a> Overview
 
 The M/Gateway Service Integration Gateway (**SIG**) is an Open Source network-based service developed for InterSystems **Cache/IRIS** and the **YottaDB** Database Servers.  It will also work with the **GT.M** database and other **M-like** Databases Servers.  Its core function is to manage connectivity, process and resource pooling for **M-like** DB Servers.  The pooled resources can be used by any of the client-facing technologies in this product series (for example **mg\_php** and **mg\_go** etc ...).
 
+There are two parts to a complete SIG installation:
 
-## Pre-requisites
+* The DB Superserver.  This component resides inside the DB Server and is independently required by other M/Gateway Open Source products.
+* The SIG itself.  This is effectively a client to the DB Superserver.
+
+
+## <a name="PreReq"></a> Pre-requisites
 
 InterSystems **Cache/IRIS** or **YottaDB** (or similar M DB Server):
 
        https://www.intersystems.com/
        https://yottadb.com/
 
-## Installing the SIG
 
-There are three parts to the **SIG** installation and configuration.
+## <a name="InstallSS"></a> Installing the DB Superserver
 
-* The **SIG** executable (a UNIX Daemon or Windows Service) (**mgsi** or **mgsi.exe**).
-* The database (or server) side code: **zmgsi**
-* A network configuration to bind the former two elements together.
-
-### Building the SIG executable
-
-The **SIG** (**mgsi** or **mgsi.exe**) is written in standard C.  The GNU C compiler (gcc) can be used for Linux systems:
-
-Ubuntu:
-
-       apt-get install gcc
-
-Red Hat and CentOS:
-
-       yum install gcc
-
-Apple OS X can use the freely available **Xcode** development environment.
-
-Windows can use the free "Microsoft Visual Studio Community" edition of Visual Studio for building the **SIG**:
-
-* Microsoft Visual Studio Community: [https://www.visualstudio.com/vs/community/](https://www.visualstudio.com/vs/community/)
-
-There are built Windows x64 binaries available from:
-
-* [https://github.com/chrisemunt/mgsi/blob/master/bin/winx64](https://github.com/chrisemunt/mgsi/blob/master/bin/winx64)
-
-Having created a suitable development environment, **Makefiles** are provided to build the **SIG** for UNIX and Windows.
-
-#### UNIX
-
-Invoke the build procedure from the /src directory (i.e. the directory containing the **Makefile** file).
-
-       make
-
-#### Windows
-
-Invoke the build procedure from the /src directory (i.e. the directory containing the **Makefile.win** file).
-
-       nmake /f Makefile.win
+The DB Superserver consists of two M routines (**%zmgsi** and **%zmgsis**).
 
 ### InterSystems Cache/IRIS
 
-Log in to the %SYS Namespace and install the **zmgsi** routines held in **/isc/zmgsi\_isc.ro**.
+Log in to the %SYS Namespace and install the Superserver **zmgsi** routines held in **/isc/zmgsi\_isc.ro**.
 
        do $system.OBJ.Load("/isc/zmgsi_isc.ro","ck")
 
@@ -76,7 +54,7 @@ Change to your development Namespace and check the installation:
        do ^%zmgsi
 
        M/Gateway Developments Ltd - Service Integration Gateway
-       Version: 3.6; Revision 15 (6 November 2020)
+       Version: 4.0; Revision 16 (11 February 2021)
 
 ### YottaDB
 
@@ -88,7 +66,7 @@ The primary default location for routines:
 
        /root/.yottadb/r1.30_x86_64/r
 
-Copy all the routines (i.e. all files with an 'm' extension) held in the GitHub **/yottadb** directory to:
+Copy all the Superserver routines (i.e. all files with an 'm' extension) held in the GitHub **/yottadb** directory to:
 
        /root/.yottadb/r1.30_x86_64/r
 
@@ -104,25 +82,31 @@ Link all the **zmgsi** routines and check the installation:
        do ^%zmgsi
 
        M/Gateway Developments Ltd - Service Integration Gateway
-       Version: 3.6; Revision 15 (6 November 2020)
+       Version: 4.0; Revision 16 (11 February 2020)
 
 
 Note that the version of **zmgsi** is successfully displayed.
 
 
-## Setting up the network service
+## <a name="StartSS"></a> Starting the DB Superserver
 
-The default TCP server port for **zmgsi** is **7041**.  If you wish to use an alternative port then modify the following instructions accordingly.
+The default TCP server port for the DB Superserver (**zmgsi**) is **7041**.  If you wish to use an alternative port then modify the following instructions accordingly.
 
-### InterSystems Cache/IRIS
+In YottaDB, the DB Superserver can either be started from the DB (i.e. M) command prompt or Superserver processes can be started by the **xinetd** daemon.
 
-Start the Cache/IRIS-hosted concurrent TCP service in the Manager UCI:
+### Starting the DB Supererver from the DB command prompt
+
+* For InterSystems DB servers the concurrent TCP service should be started in the **%SYS** Namespace.
+
+Start the DB Superserver using the following command:
 
        do start^%zmgsi(0) 
 
 To use a server TCP port other than 7041, specify it in the start-up command (as opposed to using zero to indicate the default port of 7041).
 
-### YottaDB
+
+### Starting YottaDB Supererver processes via the xinetd daemon
+
 
 Network connectivity to **YottaDB** is managed via the **xinetd** service.  First create the following launch script (called **zmgsi\_ydb** here):
 
@@ -174,7 +158,53 @@ Finally restart the **xinetd** service:
 
        /etc/init.d/xinetd restart
 
-## Starting the SIG
+
+## <a name="InstallSIG"></a> Installing the SIG
+
+There are three parts to a complete **SIG** installation and configuration.
+
+* The **SIG** executable (a UNIX Daemon or Windows Service) (**mgsi** or **mgsi.exe**).
+* The DB Superserver described previously: **%zmgsi**
+* A network configuration to bind the former two elements together.
+
+### Building the SIG executable
+
+The **SIG** (**mgsi** or **mgsi.exe**) is written in standard C.  The GNU C compiler (gcc) can be used for Linux systems:
+
+Ubuntu:
+
+       apt-get install gcc
+
+Red Hat and CentOS:
+
+       yum install gcc
+
+Apple OS X can use the freely available **Xcode** development environment.
+
+Windows can use the free "Microsoft Visual Studio Community" edition of Visual Studio for building the **SIG**:
+
+* Microsoft Visual Studio Community: [https://www.visualstudio.com/vs/community/](https://www.visualstudio.com/vs/community/)
+
+There are built Windows x64 binaries available from:
+
+* [https://github.com/chrisemunt/mgsi/blob/master/bin/winx64](https://github.com/chrisemunt/mgsi/blob/master/bin/winx64)
+
+Having created a suitable development environment, **Makefiles** are provided to build the **SIG** for UNIX and Windows.
+
+#### UNIX
+
+Invoke the build procedure from the /src directory (i.e. the directory containing the **Makefile** file).
+
+       make
+
+#### Windows
+
+Invoke the build procedure from the /src directory (i.e. the directory containing the **Makefile.win** file).
+
+       nmake /f Makefile.win
+
+
+## <a name="StartSIG"></a> Starting the SIG
 
 The **SIG** executable can be installed in a directory of your choice.  When started, it will create a configuration file called **mgsi.ini**.  The event log file will be called **mgsi.log**.
 
@@ -200,19 +230,22 @@ Stopping the **SIG**:
 
 When the **SIG** is started for the first time it will register itself as a Windows Service.  Thereafter it can be managed from the Windows Services Control Panel if desired.
 
-## Using the SIG
+
+## <a name="UsingSIG"></a> Using the SIG
 
 When the **SIG** is up and running its services are immediately available to participating clients.  The **SIG** provides a web-based user interface for the purpose of maintaining the configuration and service management.  By default the **SIG** listens on TCP port 7040.  The web-based management suite may be accessed as follows.
 
        http://[server]:7040/mgsi/mgsisys.mgw
 
-## Resources used by zmgsi
+
+## <a name="Resources"></a> Resources used by the DB Superserver
 
 The **zmgsi** server-side code will write to the following global:
 
 * **^zmgsi**: The event Log. 
 
-## License
+
+## <a name="License"></a> License
 
 Copyright (c) 2018-2021 M/Gateway Developments Ltd,
 Surrey UK.                                                      
@@ -237,3 +270,12 @@ Unless required by applicable law or agreed to in writing, software distributed 
 ### v3.1.102a (21 December 2020)
 
 * Updates to the documentation.
+
+### v3.1.102a; Superserver v4.0.16 (11 February 2021)
+
+* Introduce a native concurrent TCP server for YottaDB.
+	* The Superserver can be started from the M command prompt using **d start^%zmgsi(<tcp port>)**.
+	* Invocation of Superserver processes from the xinetd daemon is still supported. 
+* Introduce commands to support M Transaction Processing.
+* Review the Superserver code base and remove unnecessary/defunct code.
+
