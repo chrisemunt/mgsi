@@ -3,7 +3,7 @@
  ;  ----------------------------------------------------------------------------
  ;  | %zmgsis                                                                  |
  ;  | Author: Chris Munt cmunt@mgateway.com, chris.e.munt@gmail.com            |
- ;  | Copyright (c) 2016-2020 M/Gateway Developments Ltd,                      |
+ ;  | Copyright (c) 2016-2021 M/Gateway Developments Ltd,                      |
  ;  | Surrey UK.                                                               |
  ;  | All rights reserved.                                                     |
  ;  |                                                                          |
@@ -48,12 +48,13 @@ a0 d vers q
  ; v3.5.13:  29 August    2020 (Introduce ASCII streamed write for mg_web; Introduce websocket support; reset ISC namespace after each web request)
  ; v3.5.14:  24 September 2020 (Add a getdatetime() function)
  ; v3.6.15:   6 November  2020 (Add functionality to support load balancing and failover in mg_web)
+ ; v4.0.16:  11 February  2021 (Implement native concurrent TCP server for YottaDB; Transaction Processing; Review code base and remove unnecessary/defunct code)
  ;
 v() ; version and date
  n v,r,d
- s v="3.6"
- s r=15
- s d="6 November 2020"
+ s v="4.0"
+ s r=16
+ s d="11 February 2021"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -64,11 +65,16 @@ vers ; version information
  w !
  q
  ;
-isydb() ; See if this is GT.M or YottaDB
+isydb() ; See if this is YottaDB
+ n zv
+ s zv=$$getzv()
+ i zv["YottaDB" q 1
+ q 0
+ ;
+isgtm() ; See if this is GT.M
  n zv
  s zv=$$getzv()
  i zv["GT.M" q 1
- i zv["YottaDB" q 2
  q 0
  ;
 isidb() ; see if this is an intersystems database
@@ -121,6 +127,9 @@ getsys() ; Get system type
 getmsl() ; Get maximum string length
  n max
  new $ztrap set $ztrap="zgoto "_$zlevel_":getmsle^%zmgsis"
+ i $$ism21() q 1023
+ i $$ismsm() q 250
+ i $$isdsm() q 250
  q $$getmslx()
 getmsle ; error
  q $$getmslx()
@@ -137,25 +146,44 @@ getdatetime(h) ; Get the date and time in text form
  s dt=$zd(h)_" "_$$dtime($p(h,",",2),1)
  q dt
  ;
-vars ; public  system variables
+lcase(string) ; convert to lower case
+ q $tr(string,"ABCDEFGHIJKLMNOPQRSTUVWXYZ","abcdefghijklmnopqrstuvwxyz")
+ ;
+ucase(string) ; convert to upper case
+ q $tr(string,"abcdefghijklmnopqrstuvwxyz","ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+ ;
+vars(a) ; public  system variables
  ;
  ; the following variables can be modified in accordance with the documentation
- s extra=$c(1) ; key marker for oversize data strings
- s abyref=0 ; set to 1 to treat all arrays as if they were passed by reference
- s mqinfo=0 ; set to 1 to place all mq error/information messages in %zmgmq("info")
- ;            otherwise, error messages will be placed in %zmgmq("error")
- ;            and 'information only' messages in %zmgmq("info")
+ s a("extra")=$c(1)    ; key marker for oversize data strings
+ s a("mqinfo")=0       ; set to 1 to place all mq error/information messages in %zmgmq("info")
+ ;                       otherwise, error messages will be placed in %zmgmq("error")
+ ;                       and 'information only' messages in %zmgmq("info")
+ s a("avar")="req"     ; prefix for argument variables.
+ s a("buffer")=""      ; output buffer.
+ s a("idle_timeout")=0 ; idle timeout
  ;
  ; the following variables must not be modified
- i '($d(global)#10) s global=0
- i '($d(oversize)#10) s oversize=0
- i '($d(offset)#10) s offset=0
- i '($d(version)#10) s version=+$$v()
+ i '($d(a("global"))#10) s a("global")=0
+ i '($d(a("oversize"))#10) s a("oversize")=0
  ; #define mg_tx_data     0
  ; #define mg_tx_akey     1
  ; #define mg_tx_arec     2
  ; #define mg_tx_eod      3
- s ddata=0,dakey=1,darec=2,deod=3
+ s a("ddata")=0,a("dakey")=1,a("darec")=2,a("deod")=3
+ s a("maxlen")=$$getmsl()
+ q
+ ;
+bvars(a) ; initialise buffer control variables
+ s a("maxlen")=$$getmsl()
+ s (a("recvsize"),a("recvptr"),a("recvrlen"))=0
+ s a("recvbuf")=""
+ q
+ ;
+delavars(a) ; delete argument variables
+ n i
+ f i=1:1:37 k @(a("avar")_i)
+ k a("buffer") s a("buffer")=""
  q
  ;
 esize(esize,size,base)
@@ -169,7 +197,7 @@ esize1 ; up to base 62
  q $l(esize)
  ;
 dsize(esize,len,base)
- n i,x
+ n i,x,size
  i base'=10 g dsize1
  s size=+$e(esize,1,len)
  q size
@@ -204,7 +232,7 @@ dsize256(esize) ; convert little-endian 32-bit unsigned integer to M decimal
  q dsize
  ;
 ehead(head,size,byref,type)
- n slen,hlen
+ n slen,hlen,code
  s slen=$$esize(.esize,size,10)
  s code=slen+(type*8)+(byref*64)
  s head=$c(code)_esize
@@ -221,19 +249,7 @@ dhead(head,size,byref,type)
  s size=0 i $l(head)'<hlen s size=$$dsize($e(head,2,slen+1),slen,10)
  q hlen
  ;
-wsehead(size,type)
- n slen,esize
- s slen=$$esize(.esize,size,62)
- f  q:slen'<4  s esize="0"_esize,slen=slen+1
- s head=esize_type
- q head
- ;
-wsdhead(head,type)
- s type=$e(head,5)
- s size=$$dsize(head,4,62)
- q size
- ;
-rdxx(len) ; read 'len' bytes from mgsi
+recvex(len) ; read 'len' bytes from client
  n x,nmax,n,ncnt
  i 'len q ""
  s x="",nmax=len,n=0,ncnt=0 f  r y#nmax d  q:'nmax  i ncnt>100 q
@@ -243,7 +259,7 @@ rdxx(len) ; read 'len' bytes from mgsi
  i ncnt s x="" d halt ; client disconnect
  q x
  ;
-rdx(len,clen,rlen) ; read from mgsi - initialize: (rdxsize,rdxptr,rdxrlen)=0,rdxbuf="",maxlen=$$getslen()
+recv(%zcs,len,clen,rlen) ; buffered read from client - initialize buffer using bvars(.%zcs)
  n result,get,avail
  ;
  i $d(%zcs("ifc")) s result=$e(request,%zcs("ifc"),%zcs("ifc")+(len-1)),%zcs("ifc")=%zcs("ifc")+len,rlen=rlen+len q result
@@ -254,15 +270,15 @@ rdx(len,clen,rlen) ; read from mgsi - initialize: (rdxsize,rdxptr,rdxrlen)=0,rdx
  s get=len,result=""
  i 'len q result
  f  d  i 'get q
- . s avail=rdxsize-rdxptr
- . ;d event("i="_i_";len="_len_";avail="_avail_";get="_get_"=("_rdxbuf_") "_clen_" "_rlen)
- . i get'>avail s result=result_$e(rdxbuf,rdxptr+1,rdxptr+get),rdxptr=rdxptr+get,get=0 q
- . ;s result=rdxbuf,rdxptr=0,get=get-avail
- . s result=$e(rdxbuf,rdxptr+1,rdxptr+avail),rdxptr=0,get=get-avail
- . s avail=clen-rdxrlen i 'avail q
- . i avail>maxlen s avail=maxlen 
- . s rdxbuf=$$rdxx(avail),rdxsize=avail,rdxptr=0,rdxrlen=rdxrlen+avail
- . ;d event("rdxbuf="_i_"="_rdxbuf)
+ . s avail=%zcs("recvsize")-%zcs("recvptr")
+ . ;d event("i="_i_";len="_len_";avail="_avail_";get="_get_"=("_recvbuf_") "_clen_" "_rlen)
+ . i get'>avail s result=result_$e(%zcs("recvbuf"),%zcs("recvptr")+1,%zcs("recvptr")+get),%zcs("recvptr")=%zcs("recvptr")+get,get=0 q
+ . ;s result=%zcs("recvbuf"),%zcs("recvptr")=0,get=get-avail
+ . s result=$e(%zcs("recvbuf"),%zcs("recvptr")+1,%zcs("recvptr")+avail),%zcs("recvptr")=0,get=get-avail
+ . s avail=clen-%zcs("recvrlen") i 'avail q
+ . i avail>%zcs("maxlen") s avail=%zcs("maxlen")
+ . s %zcs("recvbuf")=$$recvex(avail),%zcs("recvsize")=avail,%zcs("recvptr")=0,%zcs("recvrlen")=%zcs("recvrlen")+avail
+ . ;d event("%zcs(""recvbuf"")="_i_"="_%zcs("recvbuf"))
  . q
  s rlen=rlen+len
  q result
@@ -270,141 +286,95 @@ rdx(len,clen,rlen) ; read from mgsi - initialize: (rdxsize,rdxptr,rdxrlen)=0,rdx
 inetd ; entry point from [x]inetd
 xinetd ; someone is sure to use this label
  new $ztrap set $ztrap="zgoto "_$zlevel_":inetde^%zmgsis"
- d child(0,0,1,"")
+ d child(0,0)
  q
 inetde ; error
  w $$error()
  q
  ;
 ifc(ctx,request,param) ; entry point from fixed binding
- n %zcs,clen,hlen,result,rlen,abyref,anybyref,argc,array,buf,byref,cmnd,dakey,darec,ddata,deod,eod,esize,extra,fun,global,hlen,maxlen,mqinfo,nato,offset,ok,oversize,pcmnd,rdxbuf,rdxptr,rdxrlen,rdxsize,ref,refn,mreq1,req,req1,req2,req3,res,size,sl,slen,sn,sysp,type,uci,var,version,x
+ n %zcs,argc,sn,type,var,req,cmnd,pcmnd,buf,byref,hlen,clen,rlen,result
  new $ztrap set $ztrap="zgoto "_$zlevel_":ifce^%zmgsis"
  i param["$zv" q $zv
  i param["dbx" q $$dbx(ctx,$e(request,5),$e(request,6,9999),$$dsize256(request),param)
- d vars
+ d vars(.%zcs)
  s %zcs("ifc")=1
- s argc=1,array=0,nato=0
- k ^%zmg("mpc",$j),^mgsi($j)
- s maxlen=$$getslen()
- s (rdxsize,rdxptr,rdxrlen)=0,rdxbuf=""
- s sn=0,sl=0,ok=1,type=0,offset=0,var="req"_argc,req(argc)=var,(cmnd,pcmnd,buf)=""
+ s argc=1
+ k ^mgsi($j)
+ d delavars(.%zcs)
+ d bvars(.%zcs)
+ s sn=0,type=0,var=%zcs("avar")_argc,req(argc)=var,(cmnd,pcmnd,buf)=""
  s buf=$p(request,$c(10),1),%zcs("ifc")=%zcs("ifc")+$l(buf)+1
- s type=0,byref=0 d req1 s @var=buf
+ s type=0,byref=0 d req2(.%zcs,.req,argc,type,byref,buf,.cmnd,.pcmnd,.var) s @var=buf
  s cmnd=$p(buf,"^",2)
  s hlen=$l(buf),clen=0
  i cmnd="P" s clen=$$dsize($e(buf,hlen-(5-1),hlen),5,62)
  s %zcs("client")=$e(buf,4)
  ;d event("request cmnd="_cmnd_"; size="_clen_" ("_$e(buf,hlen-(5-1),hlen)_"); client="_%zcs("client")_" ;header = "_buf)
  s rlen=0
- i clen d req
+ i clen d req(.%zcs,.req,.argc,clen,.rlen,buf,.cmnd,.pcmnd,.var)
  s req=$g(@req(1)) i req="" q ""
  s cmnd=$p(req,"^",2)
- k res s res="" s res(1)="00000cv"_$c(10)
- i cmnd="A" d ayt
- i cmnd="S" d dint
- i cmnd="P" d mphp
- i cmnd="H" d info
- i cmnd="X" d halt
- d end s result=$g(res)
- k res s res=""
+ k %zcs("buffer") s %zcs("buffer")="" s %zcs("buffer",1)="00000cv"_$c(10)
+ i cmnd="A" d ayt(.%zcs,.req)
+ i cmnd="S" d dint(.%zcs,.req)
+ i cmnd="P" d mcom(.%zcs,.req,argc)
+ i cmnd="H" d info(.%zcs,.req)
+ i cmnd="X" d halt(.%zcs)
+ d end(.%zcs) s result=$g(%zcs("buffer"))
+ d delavars(.%zcs)
  q result
 ifce ; error
  q "00000ce"_$c(10)_"m server error : ["_$g(req(2))_"]"_$tr($$error(),"<>%","[]^")
  ;
-ifct ; ifc test
- k
- s req=$$ifct1()
- s res=$$ifc(0,req,"")
- q
- ;
-ifct1() ; test data
- n
- d vars
- s server="localhost",uci="",vers="1.1.1",smeth=0,cmnd="S"
- s req="PHPp^P^"_server_"#"_uci_"#0###"_vers_"#"_smeth_"^"_cmnd_"^00000"_$c(10)
- s hlen=$l(req)
- ;
- s data="cm",size=$l(data),byref=0,type=ddata
- s x=$$ehead(.head,size,byref,type)
- s req=req_head_data
- ;
- s data="1",size=$l(data),byref=0,type=ddata
- s x=$$ehead(.head,size,byref,type)
- s req=req_head_data
- ;
- s data="data",size=$l(data),byref=0,type=ddata
- s x=$$ehead(.head,size,byref,type)
- s req=req_head_data
- ;
- s x=$$esize(.esize,$l(req)-hlen,62)
- s esize=$e("00000",1,(5-x))_esize
- s req=$p(req,"00000",1)_esize_$p(req,"00000",2,9999)
- k (req)
- q req
- ;
-child(pport,port,conc,uci) ; child
+child(pport,port) ; child
+ n %zcs,x,argc,sn,type,var,req,cmnd,pcmnd,mcmnd,buf,byref,hlen,clen,rlen
  new $ztrap set $ztrap="zgoto "_$zlevel_":childe^%zmgsis"
- i uci'="" d uci(uci)
- i 'conc d
- . s ^%zmgsi("tcp_port",pport,port)=$j
- . set dev="server$"_$j,timeout=30
- . ; open tcp server device
- . open dev:(zlisten=port_":tcp":attach="server"):timeout:"socket"
- . use dev
- . write /listen(1)
- . set %znsock="",%znfrom=""
- . s ok=1 f  d  q:ok  i $d(^%zmgsi("stop")) s ok=0 q
- . . write /wait(timeout)
- . . i $key'="" s ok=1 q
- . . d event^%zmgsis("write /wait(timeout) expires")
- . . s ok=0
- . . q
- . i 'ok c dev h
- . set %znsock=$piece($key,"|",2),%znfrom=$piece($key,"|",3)
- . ;d event^%zmgsis("incoming child connection from "_%znfrom_" ("_%znsock_")")
- . q
+ i 'pport g child2
+ u $principal
  ;
- s nato=0
 child2 ; child request loop
- d vars
- k ^%zmg("mpc",$j),^mgsi($j)
- f i=1:1:37 k @("req"_i)
- k req s argc=1,array=0
- i '($d(nato)#10) s nato=0
+ d vars(.%zcs)
+ k ^mgsi($j)
+ d delavars(.%zcs)
+ k req s argc=1
 child3 ; read request
  ;d event("******* get next request *******")
- s maxlen=$$getslen()
- s (rdxsize,rdxptr,rdxrlen)=0,rdxbuf=""
- s sn=0,sl=0,ok=1,type=0,offset=0,var="req"_argc,req(argc)=var,(cmnd,pcmnd,buf)=""
- i 'nato r *x
- i nato r *x:nato i '$t d halt ; no-activity timeout
+ d bvars(.%zcs)
+ s sn=0,type=0,var=%zcs("avar")_argc,req(argc)=var,(cmnd,pcmnd,buf)=""
+ i '%zcs("idle_timeout") r *x
+ i %zcs("idle_timeout") r *x:%zcs("idle_timeout") i '$t d halt ; no-activity timeout
  i x=0 d halt ; client disconnect
  s buf=$c(x) f  r *x q:x=10!(x=0)  s buf=buf_$c(x)
  i x=0 d halt ; client disconnect
  i buf="xDBC" g main^%mgsqln
  i buf?1u.e1"HTTP/"1n1"."1n1c s buf=buf_$c(10) g main^%mgsqlw
  i $e(buf,1,4)="dbx1" d dbxnet^%zmgsis(buf) g halt
- s type=0,byref=0 d req1 s @var=buf
+ s type=0,byref=0 d req2(.%zcs,.req,argc,type,byref,buf,.cmnd,.pcmnd,.var) s @var=buf
  s cmnd=$p(buf,"^",2)
  s hlen=$l(buf),clen=0
  i cmnd="P" s clen=$$dsize($e(buf,hlen-(5-1),hlen),5,62)
  s %zcs("client")=$e(buf,4)
  ;d event("request cmnd="_cmnd_"; size="_clen_" ("_$e(buf,hlen-(5-1),hlen)_"); client="_%zcs("client")_" ;header = "_buf)
  s rlen=0
- i clen d req
+ i clen d req(.%zcs,.req,.argc,clen,.rlen,buf,.cmnd,.pcmnd,.var)
  ;
  ;f i=1:1:argc d event("arg "_i_" = "_$g(@req(i)))
  ;
  s req=$g(@req(1)) i req="" g child2
  s cmnd=$p(req,"^",2)
- k res s res="" s res(1)="00000cv"_$c(10)
- i cmnd="A" d ayt
- i cmnd="S" d dint
- i cmnd="P" d mphp
- i cmnd="H" d info
- i cmnd="X" d halt
- d end
- k res s res=""
+ k %zcs("buffer") s %zcs("buffer")="" s %zcs("buffer",1)="00000cv"_$c(10)
+ s mcmnd=$p(req,"^",4)
+ i cmnd="P",mcmnd="a" tstart  s res=0 d res(.%zcs,.req,argc,res),end(.%zcs) g child2
+ i cmnd="P",mcmnd="b" s res=$tlevel d res(.%zcs,.req,argc,res),end(.%zcs) g child2
+ i cmnd="P",mcmnd="c" tcommit  s res=0 d res(.%zcs,.req,argc,res),end(.%zcs) g child2
+ i cmnd="P",mcmnd="d" trollback  s res=0  d res(.%zcs,.req,argc,res),end(.%zcs) g child2
+ i cmnd="A" d ayt(.%zcs,.req)
+ i cmnd="S" d dint(.%zcs,.req)
+ i cmnd="P" d mcom(.%zcs,.req,argc)
+ i cmnd="H" d info(.%zcs,.req)
+ i cmnd="X" d halt(.%zcs)
+ d end(.%zcs)
  g child2
  ;
 childe ; error
@@ -413,39 +383,30 @@ childe ; error
  i $$error()["%gtm-e-ioeof" g halt
  g child2
  ;
-halt ; halt
- i 'conc d
- . ; close tcp server device
- . i $l($g(dev)) c dev
- . s x="" f  s x=$o(^%zmgsi("tcp_port",x)) q:x=""  k ^%zmgsi("tcp_port",x,port)
- . q
+halt(%zcs) ; halt
  h
  ;
-req ; read request data
- n port,dev,conc,get,got
-req0 ; get next argument
- s x=$$rdx(1,clen,.rlen),hlen=$$dhead(x,.size,.byref,.type)
- ;d event("(1) clen="_clen_";rlen="_rlen_";hlen="_hlen_";argc="_argc_";size="_size_";byref="_byref_";type="_type)
+req(%zcs,req,argc,clen,rlen,buf,cmnd,pcmnd,var) ; read request data
+ n x,hlen,size,byref,type,slen,esize,sn,get,got
+req1 ; get next argument
+ s x=$$recv(.%zcs,1,clen,.rlen),hlen=$$dhead(x,.size,.byref,.type)
  s slen=hlen-1
- s esize=$$rdx(slen,clen,.rlen)
+ s esize=$$recv(.%zcs,slen,clen,.rlen)
  s size=$$dsize(esize,slen,10)
- ;d event("(2) clen="_clen_";rlen="_rlen_";hlen="_hlen_";slen="_slen_";argc="_argc_";size="_size_";byref="_byref_";type="_type)
- s argc=argc+1
- d req1
- i type=darec d array g reqz
- s got=0 f sn=0:1 s get=size-got s:get>maxlen get=maxlen s buf=$$rdx(get,clen,.rlen) d  i got=size q
+ s argc=argc+1,sn=0
+ d req2(.%zcs,.req,argc,type,byref,buf,.cmnd,.pcmnd,.var)
+ i type=%zcs("darec") d array(.%zcs,.req,argc,clen,.rlen,buf,var) g reqz
+ s got=0 f sn=0:1 s get=size-got s:get>%zcs("maxlen") get=%zcs("maxlen") s buf=$$recv(.%zcs,get,clen,.rlen) d  i got=size q
  . s got=got+get
- . ;d event("(3) data: clen="_clen_";rlen="_rlen_";size="_size_";get="_get_";sn="_sn_";pcmnd="_pcmnd_";buf="_buf)
- . i argc=3,pcmnd="h" s @var=buf d mpc q
  . i 'sn s @var=buf q
- . i sn s @(var_"(extra,sn)")=buf q
+ . i sn s @(var_"(%zcs(""extra""),sn)")=buf q
  . q
 reqz ; argument read
- i rlen<clen g req0
- s eod=1
+ i rlen<clen g req1
  q
  ;
-req1 ; initialize next argument
+req2(%zcs,req,argc,type,byref,buf,cmnd,pcmnd,var) ; initialize next argument
+ n sysp,uci,ucic,offset
  i argc=1 d
  . s cmnd=$p(buf,"^",2)
  . s sysp=$p(buf,"^",3)
@@ -455,99 +416,89 @@ req1 ; initialize next argument
  . . d uci(uci) d event("correct namespace from '"_ucic_"' to '"_uci_"'")
  . . q
  . s offset=$p(sysp,"#",3)+0
- . s global=$p(sysp,"#",7)+0
+ . s %zcs("global")=$p(sysp,"#",7)+0
  . s pcmnd=$p(buf,"^",4)
  . q
- s sn=0,sl=0
- s var="req"_argc
+ s var=%zcs("avar")_argc
  s req(argc)=var
- s req(argc,0)=type i type=darec s req(argc,0)=1
+ s req(argc,0)=type i type=%zcs("darec") s req(argc,0)=1
  s req(argc,1)=byref
- i type=1,abyref=1 s req(argc,1)=1
+ i type=1 s req(argc,1)=1
  q
  ;
-mpc ; raw content for http post: save section of data
- s sn=sn+1,^%zmg("mpc",$j,"content",sn)=buf,buf="",sl=0
- q
- ;
-array ; read array
- n x,kn,val,sn,ext,get,got
- ;d event("*** array ***")
- k x,ext s kn=0
-array0 ; read next element (key or data)
- s sn=0,sl=0
- s x=$$rdx(1,clen,.rlen),hlen=$$dhead(x,.size,.byref,.type)
- ;d event("(1) array clen="_clen_";rlen="_rlen_";hlen="_hlen_";argc="_argc_";size="_size_";byref="_byref_";type="_type)
+array(%zcs,req,argc,clen,rlen,buf,var) ; read array
+ n xkey,kn,sn,hlen,size,esize,byref,type,slen,size,type,get,got,val
+ s kn=0
+array1 ; read next element (key or data)
+ s sn=0
+ s xkey=$$recv(.%zcs,1,clen,.rlen),hlen=$$dhead(xkey,.size,.byref,.type)
  s slen=hlen-1
- s esize=$$rdx(slen,clen,.rlen)
+ s esize=$$recv(.%zcs,slen,clen,.rlen)
  s size=$$dsize(esize,slen,10)
- ;d event("(2) array clen="_clen_";rlen="_rlen_";hlen="_hlen_";slen="_slen_";argc="_argc_";size="_size_";byref="_byref_";type="_type)
- i type=deod q
- s got=0 f sn=0:1 s get=size-got s:get>maxlen get=maxlen s buf=$$rdx(get,clen,.rlen) d  i got=size q
+ i type=%zcs("deod") q
+ s got=0 f sn=0:1 s get=size-got s:get>%zcs("maxlen") get=%zcs("maxlen") s buf=$$recv(.%zcs,get,clen,.rlen) d  i got=size q
  . s got=got+get
- . ;d event("(3) array data clen="_clen_";rlen="_rlen_";size="_size_";get="_get_";sn="_sn_";pcmnd="_pcmnd_";buf="_buf)
- . i argc=3,pcmnd="h" s @var=buf d mpc q
- . i type=dakey s kn=kn+1,x(kn)=buf 
- . i type=ddata s val=buf d array1 k x,ext s kn=0
+ . i type=%zcs("dakey") s kn=kn+1,xkey(kn)=buf 
+ . i type=%zcs("ddata") s val=buf d array2(.%zcs,.req,argc,.xkey,kn,sn,val) k xkey s kn=0
  . q
- g array0
+ g array1
  ;
-array1 ; read array - set a single node
- n n,i,ref,com,key
- new $ztrap set $ztrap="zgoto "_$zlevel_":array1e^%zmgsis"
- s (key,com)="" f i=1:1:kn q:i=kn&($g(x(i))=" ")  s key=key_com_"x("_i_")",com=","
- i global d
- . i $l(key) s ref="^mgsi($j,argc-2,"_key_")",eref="^mgsi($j,argc-2,"_key_",extra,sn)"
- . i '$l(key) s ref="^mgsi($j,argc-2)",eref="^mgsi($j,argc-2,extra,sn)"
+array2(%zcs,req,argc,xkey,kn,sn,val) ; read array - set a single node
+ n n,i,ref,com,key,eref
+ new $ztrap set $ztrap="zgoto "_$zlevel_":array2e^%zmgsis"
+ s (key,com)="" f i=1:1:kn q:i=kn&($g(xkey(i))=" ")  s key=key_com_"xkey("_i_")",com=","
+ i %zcs("global") d
+ . i $l(key) s ref="^mgsi($j,argc-2,"_key_")",eref="^mgsi($j,argc-2,"_key_",%zcs(""extra""),sn)"
+ . i '$l(key) s ref="^mgsi($j,argc-2)",eref="^mgsi($j,argc-2,%zcs(""extra""),sn)"
  . q
- i 'global d
- . i $l(key) s ref=req(argc)_"("_key_")",eref=req(argc)_"("_key_",extra,sn)"
- . i '$l(key) s ref=req(argc),eref=req(argc)_"(extra,sn)"
+ i '%zcs("global") d
+ . i $l(key) s ref=req(argc)_"("_key_")",eref=req(argc)_"("_key_",%zcs(""extra""),sn)"
+ . i '$l(key) s ref=req(argc),eref=req(argc)_"(%zcs(""extra""),sn)"
  . q
  i $l(ref) x "s "_ref_"=val"
- f sn=1:1 q:'$d(ext(sn))  x "s "_eref_"=ext(sn)"
  q
-array1e ;
+array2e ; error
  d event("array: "_$$error())
  q
  ;
-end ; terminate response
+end(%zcs) ; terminate response
  n len,len62,i,head,x
- i '$d(%zcs("ifc")),$e($g(res(1)),6,7)="sc" w $p(res(1),"0",1) d flush q  ; streamed response
+ i '$d(%zcs("ifc")),$e($g(%zcs("buffer",1)),6,7)="sc" w $p(%zcs("buffer",1),"0",1) d flush q  ; streamed response
  s len=0
- f i=1:1 q:'$d(res(i))  s len=len+$l(res(i))
+ f i=1:1 q:'$d(%zcs("buffer",i))  s len=len+$l(%zcs("buffer",i))
  s len=len-8
- s head=$e($g(res(1)),1,8)
+ s head=$e($g(%zcs("buffer",1)),1,8)
  s x=$$esize(.len62,len,62)
  f  q:$l(len62)'<5  s len62="0"_len62
  s head=len62_$e(head,6,8) i $l(head)'=8 s head=len62_"cv"_$c(10)
- s res(1)=head_$e($g(res(1)),9,99999)
+ s %zcs("buffer",1)=head_$e($g(%zcs("buffer",1)),9,99999)
  ; flush the lot out
  i $d(%zcs("ifc")) g end1
- f i=1:1 q:'$d(res(i))  w res(i)
+ f i=1:1 q:'$d(%zcs("buffer",i))  w %zcs("buffer",i)
  d flush
  q
 end1 ; interface
- s res="" f i=1:1 q:'$d(res(i))  s res=res_res(i)
+ s %zcs("buffer")="" f i=1:1 q:'$d(%zcs("buffer",i))  s %zcs("buffer")=%zcs("buffer")_%zcs("buffer",i)
  q
  ;
 flush ; flush output buffer
  q
  ;
-ayt ; are you there?
+ayt(%zcs,req) ; are you there?
+ n txt
  s req=$g(@req(1))
  s txt=$p($h,",",2)
  f  q:$l(txt)'<5  s txt="0"_txt
  s txt="m"_txt
  f  q:$l(txt)'<12  s txt=txt_"0"
- d send(txt)
+ d send(.%zcs,txt)
  q
  ; 
-dint ; initialise the service link
- n port,%uci,username,password,usrchk,systype,sysver
+dint(%zcs,req) ; initialise the service link
+ n username,password,usrchk,version,itimeout,nls,uci,x,systype,sysver,txt
  s (username,password)=""
- s req=$p($g(@req(1)),"^s^",2,9999)
- ;"^s^version=%s&timeout=%d&nls=%s&uci=%s"
+ s req=$p($g(@req(1)),"^S^",2,9999)
+ ;"^S^version=%s&timeout=%d&nls=%s&uci=%s"
  s username=$p(req,"&unpw=",2,999)
  s password=$p(username,$c(1),2),username=$p(username,$c(1),1)
  s usrchk=1
@@ -555,20 +506,21 @@ dint ; initialise the service link
  i 'usrchk g halt
  ;d event(username_"|"_password)
  s version=$p($p(req,"version=",2),"&",1)
- s nato=+$p($p(req,"timeout=",2),"&",1)
- s %zcs("nls_trans")=$p($p(req,"nls=",2),"&",1)
- s %uci=$p($p(req,"uci=",2),"&",1)
- i $l(%uci) d uci(%uci)
- s x=$$setio(%zcs("nls_trans"))
- s %uci=$$getuci()
+ s itimeout=+$p($p(req,"timeout=",2),"&",1)
+ s %zcs("idle_timeout")=itimeout
+ s nls=$p($p(req,"nls=",2),"&",1)
+ s uci=$p($p(req,"uci=",2),"&",1)
+ i $l(uci) d uci(uci)
+ s x=$$setio(nls)
+ s uci=$$getuci()
  s systype=$$getsys()
  s sysver=$$getzvv()
- s txt="pid="_$j_"&uci="_%uci_"&server_type="_systype_"&server_version="_sysver_"&version="_$p($$v(),".",1,3)_"&child_port=0"
- d send(txt)
+ s txt="pid="_$j_"&uci="_uci_"&server_type="_systype_"&server_version="_sysver_"&version="_$p($$v(),".",1,3)_"&child_port=0"
+ d send(.%zcs,txt)
  q
  ;
 uci(uci) ; change namespace/uci
- n port,dev,conc
+ n x
  new $ztrap set $ztrap="zgoto "_$zlevel_":ucie^%zmgsis"
  i uci="" q
  s $zg=uci
@@ -577,788 +529,227 @@ ucie ; error
  d event("uci error: "_uci_" : "_$$error())
  q
  ;
-info ; connection info
- n port,dev,conc,nato
- d send("HTTP/1.1 200 OK"_$char(13,10)_"Connection: close"_$char(13,10)_"Content-Type: text/html"_$char(13,10,13,10))
- d send("<html><head><title>mgsi - connection test</title></head><body bgcolor=#ffffcc>")
- d send("<h2>mgsi - connection test successful</h2>")
- d send("<table border=1>")
- d send("<tr><td>"_$$getsys()_" version:</td><td><b>"_$$getzv()_"<b><tr>")
- d send("<tr><td>uci:</td><td><b>"_$$getuci()_"<b><tr>")
- d send("</table>")
- d send("</body></html>")
+getuci() ; get namespace/uci
+ n uci
+ new $ztrap set $ztrap="zgoto "_$zlevel_":getucie^%zmgsis"
+ s uci=$zg
+ q uci
+getucie ; error
+ q ""
+ ;
+info(%zcs,req) ; connection information
+ d send(.%zcs,"HTTP/1.1 200 OK"_$char(13,10)_"Connection: close"_$char(13,10)_"Content-Type: text/html"_$char(13,10,13,10))
+ d send(.%zcs,"<html><head><title>mgsi - connection test</title></head><body bgcolor=#ffffcc>")
+ d send(.%zcs,"<h2>mgsi - connection test successful</h2>")
+ d send(.%zcs,"<table border=1>")
+ d send(.%zcs,"<tr><td>"_$$getsys()_" version:</td><td><b>"_$$getzv()_"<b><tr>")
+ d send(.%zcs,"<tr><td>uci:</td><td><b>"_$$getuci()_"<b><tr>")
+ d send(.%zcs,"</table>")
+ d send(.%zcs,"</body></html>")
  q
  ;
-event(text) ; log m-side event
- n port,dev,conc,n,emax
- new $ztrap set $ztrap="zgoto "_$zlevel_":evente^%zmgsis"
- f i=1:1 s x=$e(text,i) q:x=""  s y=$s(x=$c(13):"\r",x=$c(10):"\n",1:"") i y'="" s $e(text,i)=y
- s emax=100 ; maximum log size (no. messages)
- l +^%zmgsi("log")
- s n=$g(^%zmgsi("log")) i n="" s n=0
- s n=n+1,^%zmgsi("log")=n
- l -^%zmgsi("log")
- s ^%zmgsi("log",n,0)=$$head(),^%zmgsi("log",n,1)=text
- f n=n-emax:-1 q:'$d(^%zmgsi("log",n))  k ^(n)
- q
-evente ; error
- q
- ;
-ddate(date) ; decode m date
- new $ztrap set $ztrap="zgoto "_$zlevel_":ddatee^%zmgsis"
- q $zd(date,2)
-ddatee ; no $zd function
- q date
- ;
-dtime(mtime,format) ; decode m time
- n h,m,s
- i mtime="" q ""
- i mtime["," s mtime=$p(mtime,",",2)
- i format=0 q (mtime\3600)_":"_(mtime#3600\60)
- s h=mtime\3600,s=mtime-(h*3600),m=s\60,s=s#60
- q $s(h<10:"0",1:"")_h_":"_$s(m<10:"0",1:"")_m_":"_$s(s<10:"0",1:"")_s
- ;
-head() ; format header record
- n %uci
- new $ztrap set $ztrap="zgoto "_$zlevel_":heade^%zmgsis"
- s %uci=$$getuci()
-heade ; error
- q $$ddate(+$h)_" at "_$$dtime($p($h,",",2),0)_"~"_$g(%zcs("port"))_"~"_%uci
- ;
-hmacsha256(string,key,b64,context) ; hmac-sha256
- q $$crypt("127.0.0.1",$s(context:80,1:7040),"hmac-sha256",string,key,b64,context)
- ;
-hmacsha1(string,key,b64,context) ; hmac-sha1
- q $$crypt("127.0.0.1",$s(context:80,1:7040),"hmac-sha1",string,key,b64,context)
- ;
-hmacsha(string,key,b64,context) ; hmac-sha
- q $$crypt("127.0.0.1",$s(context:80,1:7040),"hmac-sha",string,key,b64,context)
- ;
-hmacmd5(string,key,b64,context) ; hmac-md5
- q $$crypt("127.0.0.1",$s(context:80,1:7040),"hmac-md5",string,key,b64,context)
- ;
-sha256(string,b64,context) ; sha256
- q $$crypt("127.0.0.1",$s(context:80,1:7040),"sha256",string,"",b64,context)
- ;
-sha1(string,b64,context) ; sha1
- q $$crypt("127.0.0.1",$s(context:80,1:7040),"sha1",string,"",b64,context)
- ;
-sha(string,b64,context) ; sha
- q $$crypt("127.0.0.1",$s(context:80,1:7040),"sha",string,"",b64,context)
- ;
-md5(string,b64,context) ; md5
- q $$crypt("127.0.0.1",$s(context:80,1:7040),"md5",string,"",b64,context)
- ;
-b64(string,context) ; base64
- q $$crypt("127.0.0.1",$s(context:80,1:7040),"b64",string,"",0,context)
- ;
-db64(string,context) ; decode base64
- q $$crypt("127.0.0.1",$s(context:80,1:7040),"d-b64",string,"",0,context)
- ;
-time(context) ; time
- q $$crypt("127.0.0.1",$s(context:80,1:7040),"time","","",0,context)
- ;
-zts(context) ; zts
- s time=$$time(context)
- s zts=$p($h,",",1)_","_(($p(time,":",1)*60*60)+($p(time,":",2)*60)+$p(time,":",3))
- q zts
- ;
-crypt(ip,port,method,string,key,b64,context)
- n %zmgmq,response,method
- s method=method i b64 s method=method_"-b64"
- s %zmgmq("send")=string
- s %zmgmq("key")=key
- i context=0 s response=$$wsmq(ip,port,method,.%zmgmq)
- i context=1 s response=$$wsx(ip,port,method,.%zmgmq)
- q $g(%zmgmq("recv"))
- ;
-wsmq(ip,port,request,%zmgmq) ; message for websphere mq (parameters passed by reference)
- q $$wsmq1(ip,port,request)
- ;
-wsmq1(ip,port,request) ; message for websphere mq (parameters passed by global array - %zmgmq())
- n (ip,port,request,%zmgmq)
- new $ztrap set $ztrap="zgoto "_$zlevel_":wsmqe^%zmgsis"
- ;
- ; close connection to gateway
- i request="close" d  s result=1 g wsmq1x
- . i $d(%zmgmq("keepalive","dev")) s dev=%zmgmq("keepalive","dev") k %zmgmq("keepalive") c dev
- . q
- ;
- d vars
- s crlf=$c(13,10)
- s request=$$ucase(request)
- i request="get" k %zmgsi("send")
- s res=""
- s %zmgmq("error")=""
- s global=+$g(%zmgmq("global"))
- ;
- ; create tcp connection to gateway
- s ok=1
- i $d(%zmgmq("keepalive","dev")) s dev=%zmgmq("keepalive","dev")
- i '$d(%zmgmq("keepalive","dev")) d
- . s dev="client$"_$j,timeout=10
- . o dev:(connect=ip_":"_port_":tcp":attach="client"):timeout:"socket" e  s %zmgmq("error")="cannot connect to mgsi" s ok=0
- . q
- i 'ok s result=0 g wsmq1x
- ;
- s maxlen=$$getslen()
- s buffer="",bsize=0,eof=0
- s dev(0)=$s($$isidb()!$$isydb():$io,1:0)
- u dev
- s req="wsmq "_request_" v1.1"_crlf d wsmqs
- s x="" f  s x=$o(%zmgmq(x)) q:x=""  i x'="recv",x'="send" s y=$g(%zmgmq(x)) i y'="" s req=x_": "_y_crlf d wsmqs
- s req=crlf d wsmqs
- i global d
- . s req=$g(^mgsi($j,1,"send")) i req'="" d wsmqs
- . s x="" f  s x=$o(^mgsi($j,1,"send",extra,x)) q:x=""  s req=$g(^mgsi($j,1,"send",extra,x)) i req'="" d wsmqs
- . s x="" f  s x=$o(^mgsi($j,1,"send",x)) q:x=""  i x'=extra s req=$g(^mgsi($j,1,"send",x)) i req'="" d wsmqs
- . q
- i 'global d
- . s req=$g(%zmgmq("send")) i req'="" d wsmqs
- . s x="" f  s x=$o(%zmgmq("send",extra,x)) q:x=""  s req=$g(%zmgmq("send",extra,x)) i req'="" d wsmqs
- . s x="" f  s x=$o(%zmgmq("send",x)) q:x=""  i x'=extra s req=$g(%zmgmq("send",x)) i req'="" d wsmqs
- . q
- ;s req=$c(deod),eof=1 d wsmqs
- s req=$c(7),eof=1 d wsmqs
- u dev
- s size=+$$rdxx(10)
- s res="",len=0,sn=0,got=0,pre="",plen=0,hdr=1 f  d  q:got=size
- . s get=size-got i get>maxlen s get=maxlen
- . s x=$$rdxx(get) s got=got+get
- . i got=size,$e(x,get)=$c(deod) s x=$e(x,1,get-1)
- . i hdr d  q
- . . s lx=$l(x,$c(13)) f i=1:1:lx d  q:'hdr
- . . . s r=$p(x,$c(13),i)
- . . . i i=lx s pre=r,plen=$l(pre) q
- . . . i plen s r=pre_r,pre="",plen=0
- . . . i r=$c(10) s hdr=0 s pre=$p(x,$c(13),i+1,99999) s:$e(pre)=$c(10) pre=$e(pre,2,99999) s plen=$l(pre) q
- . . . s nam=$p(r,": ",1),val=$p(r,": ",2,99999)
- . . . i $e(nam)=$c(10) s nam=$e(nam,2,99999)
- . . . i nam'="" s %zmgmq(nam)=val
- . . . q
- . . q
- . s to=maxlen-plen
- . s res=pre_$e(x,1,to),pre=$e(x,to+1,99999),plen=$l(pre)
- . i global d
- . . i 'sn s ^mgsi($j,1,"recv")=res,res="",sn=sn+1 q
- . . i sn s ^mgsi($j,1,"recv",extra,sn)=res,res="",sn=sn+1 q
- . . q
- . i 'global d
- . . i 'sn s %zmgmq("recv")=res,res="",sn=sn+1 q
- . . i sn s %zmgmq("recv",extra,sn)=res,res="",sn=sn+1 q
- . . q
- . q
- s result=1
- i global d
- . i plen,'sn s ^mgsi($j,1,"recv")=pre,plen=0,sn=sn+1
- . i plen,sn s ^mgsi($j,1,"recv",extra,sn)=pre,plen=0,sn=sn+1
- . i $g(^mgsi($j,1,"r_code"))=2033 s result=0
- . i $l($g(^mgsi($j,1,"error"))) s result=0
- . i $g(^mgsi($j,1,"recv"))[":mgsi:error:" s result=0
- . q
- i 'global d
- . i plen,'sn s %zmgmq("recv")=pre,plen=0,sn=sn+1
- . i plen,sn s %zmgmq("recv",extra,sn)=pre,plen=0,sn=sn+1
- . i $g(%zmgmq("r_code"))=2033 s result=0
- . i $l($g(%zmgmq("error"))) s result=0
- . i $g(%zmgmq("recv"))[":mgsi:error:" s result=0
- . q
- u dev(0)
- i $g(%zmgmq("keepalive"))=1 s %zmgmq("keepalive","dev")=dev
- i $g(%zmgmq("keepalive"))'=1 c dev
-wsmq1x ; exit point
- i $g(mqinfo) m %zmgmq("info")=%zmgmq("error") s %zmgmq("error")=""
- q result
- ;
-wsmqe ; error (eof)
- new $ztrap set $ztrap="zgoto "_$zlevel_":"
- i $d(dev(0)) u dev(0)
- i '$d(dev(0)) u 0
- i $g(%zmgmq("keepalive"))=1 s %zmgmq("keepalive","dev")=dev
- i $g(%zmgmq("keepalive"))'=1 c dev
- i $l($g(%zmgmq("error"))) g wsmqex
- s %zmgmq("error")=$$error() g wsmqex
-wsmqex ; exit point
- i $g(mqinfo) m %zmgmq("info")=%zmgmq("error") s %zmgmq("error")=""
- q 0
- ;
-wsmqs ; send outgoing header
- n n,x,len
-wsmqs1 s len=$l(req)
- i (bsize+len)<maxlen s buffer=buffer_req,bsize=bsize+len,req="",len=0 i 'eof q
- i $$isdsm() w buffer d flush
- s buffer=req,bsize=len
- i eof s req="" i bsize g wsmqs1
- q
- ;
-wsmqsrv(%zmgmq) ; server to websphere mq
- new $ztrap set $ztrap="zgoto "_$zlevel_":wsmqsrve^%zmgsis"
- i global d
- . n x
- . s x="" f  s x=$o(^mgsi($j,1,x)) q:x=""  i x'="recv" s %zmgmq(x)=$g(^mgsi($j,1,x))
- . q
- d @$g(%zmgmq("routine"))
- k %zmgmq("qm_name")
- k %zmgmq("q_name")
- k %zmgmq("recv")
- i global d
- . k ^mgsi($j,1,"qm_name")
- . k ^mgsi($j,1,"q_name")
- . k ^mgsi($j,1,"recv")
- . m ^mgsi($j,1)=%zmgmq
- . q
- q 1
-wsmqsrve ; error
- k %zmgmq("qm_name")
- k %zmgmq("q_name")
- k %zmgmq("recv")
- s %zmgmq("send")="error: "_$$error()
- s %zmgmq("error")="error: "_$$error()
- q 0
- ;
-wsx(ip,port,request,%zmgmq) ; message for web server (parameters passed by reference)
- q $$wsx1(ip,port,request)
- ;
-wsx1(ip,port,request) ; message for web server (parameters passed by global array - %zmgmq())
- n (ip,port,request,%zmgmq)
- new $ztrap set $ztrap="zgoto "_$zlevel_":wsxe^%zmgsis"
- d vars
- s crlf=$c(13,10)
- ;
- ; create tcp connection to server
- s ok=1
- i $d(%zmgmq("keepalive","dev")) s dev=%zmgmq("keepalive","dev")
- i '$d(%zmgmq("keepalive","dev")) d
- . s dev="client$"_$j,timeout=10
- . o dev:(connect=ip_":"_port_":tcp":attach="client"):timeout:"socket" e  s %zmgmq("error")="cannot connect to mgsi" s ok=0
- . q
- i 'ok s result=0 g wsxex
- ;
- s maxlen=$$getslen()
- s dev(0)=$s($$isidb()!$$isydb():$io,1:0)
- u dev
- s req=""
- s req=req_"POST /mgsi/sys/system_functions.mgsi?fun="_request_"&key="_$$wsxesc($g(%zmgmq("key")))_" HTTP/1.1"_crlf
- s req=req_"Host: "_ip_$s(port'=80:":"_port,1:"")_crlf
- s req=req_"Content-Type: text/plain"_crlf
- s req=req_"User-Agent: zmgsi v"_$g(version)_crlf
- s req=req_"Content-Length: "_$l($g(%zmgmq("send")))_crlf
- s req=req_"Connection: close"_crlf
- s req=req_crlf
- s req=req_$g(%zmgmq("send"))
- ;
- i $$isdsm() w buffer d flush
- ;
- s res=$$rdxx(60) f  q:res[$c(13,10,13,10)  s res=res_$$rdxx(1)
- s head=$p(res,$c(13,10,13,10),1),res=$p(res,$c(13,10,13,10),2,9999)
- s headn=$$lcase(head)
- s clen=+$p(headn,"content-length: ",2)
- s rlen=clen-$l(res)
- s res=res_$$rdxx(rlen)
-wsxe ; error (eof)
- new $ztrap set $ztrap="zgoto "_$zlevel_":"
- i $d(dev(0)) u dev(0)
- i '$d(dev(0)) u 0
- c dev
-wsxex ; exit point
- s %zmgmq("recv")=$g(res)
- q 0
- ;
-wsxesc(in)
- n out,i,a,c,len,n16
- s out="",n16=0 f i=1:1:$l(in) d
- . s c=$e(in,i),a=$a(c)
- . i a=32 s c="+" s out=out_c q
- . i a<32!(a>127)!(c?1p) s len=$$esize(.n16,a,16) s:len=1 n16="0"_n16 s c="%"_n16 s out=out_c q
- . s out=out_c q
- . q
- q out
- ;
-mphp ; request from m_client
- n port,dev,conc,cmnd,nato
+mcom(%zcs,req,argc) ; execute M command
+ n argz,cmnd,ref,var,varn,com,i,res
+ new $ztrap set $ztrap="zgoto "_$zlevel_":mcome^%zmgsis"
  s cmnd=$p(req,"^",4)
- d php
+ s %zcs("buffer")=""
+ i cmnd="S",argc>2 s ref=$$ref(.req,argc,argc-1,0) x "s "_ref_"="_%zcs("avar")_argc d res(.%zcs,.req,argc,"") q
+ i cmnd="G",argc>1 s ref=$$ref(.req,argc,argc,0) x "s res=$g("_ref_")" d res(.%zcs,.req,argc,res) q
+ i cmnd="K",argc>0 s ref=$$ref(.req,argc,argc,0) x "k "_ref d res(.%zcs,.req,argc,"") q
+ i cmnd="D",argc>1 s ref=$$ref(.req,argc,argc,0) x "s res=$d("_ref_")" d res(.%zcs,.req,argc,res) q
+ i cmnd="O",argc>1 s ref=$$ref(.req,argc,argc,0) x "s res=$o("_ref_")" d res(.%zcs,.req,argc,res) q
+ i cmnd="P",argc>1 s ref=$$ref(.req,argc,argc,0) x "s res=$o("_ref_",-1)" d res(.%zcs,.req,argc,res) q
+ i cmnd="I",argc>2 s ref=$$ref(.req,argc,argc-1,0) x "s res=$i("_ref_","_%zcs("avar")_argc_")" d res(.%zcs,.req,argc,res) q
+ i cmnd="a" tstart  s res=0 d res(.%zcs,.req,argc,res) q
+ i cmnd="b" s res=$tlevel d res(.%zcs,.req,argc,res) q
+ i cmnd="c" tcommit  s res=0 d res(.%zcs,.req,argc,res) q
+ i cmnd="d" trollback  s res=0 d res(.%zcs,.req,argc,res) q
+ i cmnd="M",argc>2 d  d res(.%zcs,.req,argc,"") q  ; global merge from client to database
+ . s var="" f argz=1:1 q:'$d(req(argz))  i $g(req(argz,0))=1 s var=req(argz) q
+ . i var="" q
+ . s argz=argz-1
+ . s ref=$$ref(.req,argc,argz,0)
+ . i ref["()" s ref=$p(ref,"()",1)
+ . i $g(@req(argz+2))["ks" x "k "_ref
+ . x "m "_ref_"="_var
+ . q
+ i cmnd="m",argc>2 d  d res(.%zcs,.req,argc,"") q  ; global merge from database to client
+ . s var="" f argz=1:1 q:'$d(req(argz))  i $g(req(argz,0))=1 s var=req(argz) q
+ . i var="" q
+ . s argz=argz-1
+ . s ref=$$ref(.req,argc,argz,0)
+ . i ref["()" s ref=$p(ref,"()",1)
+ . x "m "_var_"="_ref
+ . q
+ i cmnd="H" d  q  ; stream HTML content to client using M function
+ . i '$d(%zcs("ifc")) s %zcs("buffer",1)=$c(1,2,1,10)_"0sc"_$c(10) w %zcs("buffer",1)
+ . i argc<2 q
+ . s (varn,com)="" f i=1:1:argc s varn=varn_com_%zcs("avar")_i,com="," 
+ . s ref=$$ref(.req,argc,argc,0)
+ . x "n ("_varn_") d "_ref
+ . q
+ i cmnd="y" d  q  ; stream HTML content to client using ISC ClassMethod
+ . i '$d(%zcs("ifc")) s %zcs("buffer",1)=$c(1,2,1,10)_"0sc"_$c(10) w %zcs("buffer",1)
+ . i argc<1 q
+ . s varn="res" f i=1:1:argc s varn=varn_","_%zcs("avar")_i 
+ . s ref=$$oref(req,argc,0)
+ . i argc=1 x "n ("_varn_") s res=$ClassMethod()"
+ . i argc>1 x "n ("_varn_") s res=$ClassMethod("_ref_")"
+ . q
+ i cmnd="X",argc>1 d  d res(.%zcs,.req,argc,res) q  ; invocation of M extrinsic function
+ . s varn="res" f i=1:1:argc s varn=varn_","_%zcs("avar")_i 
+ . s ref=$$ref(.req,argc,argc,1)
+ . i argc=2 x "n ("_varn_") s res=$$"_ref_"()"
+ . i argc>2 x "n ("_varn_") s res=$$"_ref
+ . q
+ i cmnd="x",argc>0 d  d res(.%zcs,.req,argc,res) q  ; invocation of ISC ClassMethod
+ . s varn="res" f i=1:1:argc s varn=varn_","_%zcs("avar")_i 
+ . s ref=$$oref(req,argc,0)
+ . i argc=1 x "n ("_varn_") s res=$ClassMethod()"
+ . i argc>1 x "n ("_varn_") s res=$ClassMethod("_ref_")"
+ . q
+ q
+mcome ; error
+ d event($$client(.%zcs)_" error : "_$$error())
+ k %zcs("buffer") s %zcs("buffer")="",%zcs("buffer",2)="m server error : ["_$g(%zcs("buffer",2))_"]"_$tr($$error(),"<>%","[]^")_$g(ref)
+ s %zcs("buffer",1)="00000ce"_$c(10)
  q
  ;
-php ; serve request from m_client
- n argz,i,m
- new $ztrap set $ztrap="zgoto "_$zlevel_":phpe^%zmgsis"
- s res=""
- i cmnd="S" d set
- i cmnd="G" d get
- i cmnd="K" d kill
- i cmnd="D" d data
- i cmnd="O" d order
- i cmnd="P" d previous
- i cmnd="I" d increment
- i cmnd="M" d mergedb
- i cmnd="m" d mergephp
- i cmnd="H" d html
- i cmnd="y" d htmlm
- i cmnd="h" d http
- i cmnd="X" d proc
- i cmnd="x" d meth
- i cmnd="W" d web
- q
-phpe ; error
- d event($$client()_" error : "_$$error())
- k res s res="",res(2)="m server error : ["_$g(req(2))_"]"_$tr($$error(),"<>%","[]^")_$g(ref)
- s res(1)="00000ce"_$c(10)
- q
- ;
-client() ; get client name
- s name="m_client"
- i $g(%zcs("client"))="z" s name="m_php"
- i $g(%zcs("client"))="j" s name="m_jsp"
- i $g(%zcs("client"))="a" s name="m_aspx"
- i $g(%zcs("client"))="p" s name="m_python"
- i $g(%zcs("client"))="r" s name="m_ruby"
- i $g(%zcs("client"))="h" s name="m_apache"
- i $g(%zcs("client"))="c" s name="m_cgi"
- i $g(%zcs("client"))="w" s name="m_websphere_mq"
+client(%zcs) ; get client name
+ s name="mg_client"
+ i $g(%zcs("client"))="z" s name="mg_php"
+ i $g(%zcs("client"))="p" s name="mg_python"
+ i $g(%zcs("client"))="r" s name="mg_ruby"
  q name
  ;
-set ; global set
- i argc<3 q
- s argz=argc-1
- s fun=0 d ref
- x "s "_ref_"="_"req"_argc
- d res
- q
- ;
-get ; global get
- i argc<2 q
- s argz=argc
- s fun=0 d ref
- x "s res=$g("_ref_")"
- d res
- q
- ;
-kill ; global kill
- i argc<1 q
- s argz=argc
- s fun=0 d ref
- x "k "_ref
- d res
- q
- ;
-data ; global get
- i argc<2 q
- s argz=argc
- s fun=0 d ref
- x "s res=$d("_ref_")"
- d res
- q
- ;
-order ; global order
- i argc<3 q
- s argz=argc
- s fun=0 d ref
- x "s res=$o("_ref_")"
- d res
- q
- ;
-previous ; global reverse order
- i argc<3 q
- s argz=argc
- s fun=0 d ref
- x "s res=$o("_ref_",-1)"
- d res
- q
- ;
-increment ; Global increment
- i argc<3 q
- s argz=argc-1
- s fun=0 d ref
- x "s res=$i("_ref_","_"req"_argc_")"
- d res
- Q
- ;
-mergedb ; global merge from m_client
- i argc<3 q
- s a="" f argz=1:1 q:'$d(req(argz))  i $g(req(argz,0))=1 s a=req(argz) q
- i a="" q
- s argz=argz-1
- s fun=0 d ref
- i ref["()" s ref=$p(ref,"()",1)
- i $g(@req(argz+2))["ks" x "k "_ref
- x "m "_ref_"="_a
- d res
- q
- ;
-mergephp ; global merge to m_client
- i argc<3 q
- s a="" f argz=1:1 q:'$d(req(argz))  i $g(req(argz,0))=1 s a=req(argz) q
- i a="" q
- s argz=argz-1
- s fun=0 d ref
- i ref["()" s ref=$p(ref,"()",1)
- x "m "_a_"="_ref
- s argz=argz+1
- s abyref=1
- d res
- q
- ;
-html ; html
- i '$d(%zcs("ifc")) s res(1)=$c(1,2,1,10)_"0sc"_$c(10) w res(1)
- i argc<2 q
- s argz=argc
- s fun=0 d ref
- x "n ("_refn_") d "_ref
- q
- ;
-htmlm ; html (cos) method
- i '$d(%zcs("ifc")) s res(1)=$c(1,2,1,10)_"0sc"_$c(10) w res(1)
- i argc<1 q
- s argz=argc
- s fun=0 d oref
- s ref=$tr($p(ref,",",1,2),".","")_","_$p(ref,",",3,999)
- i argc=1 x "n ("_refn_") s req(-1)=$ClassMethod()"
- i argc>1 x "n ("_refn_") s req(-1)=$ClassMethod("_ref_")"
- s res=$g(req(-1))
- q
- ;
-web ; web request
- n req,x,y,i,websocket,status
- new $ztrap set $ztrap="zgoto "_$zlevel_":webe^%zmgsis"
- s res(1)=$c(1,2,1,10)_"0sc"_$c(10) w res(1)
- i argc'=4 g webe
- s argz=argc
- s fun=1 d ref
- s x="" f  s x=$o(req4(x)) q:x=""  s y="" f i=1:1 s y=$o(req4(x,y)) q:y=""  i y'=i m req4(x,i)=req4(x,y) k req4(x,y)
- s websocket=0 i $d(req3("HTTP_SEC_WEBSOCKET_KEY")) s websocket=1
- i 'websocket  x "n ("_refn_") d "_ref g webx
- ; websockets
- k ^%zmgsi("ws",$j)
- x "n ("_refn_") d "_ref
- i $g(^%zmgsi("ws","status"))'=-2 s status=$$wsexit()
- k ^%zmgsi("ws",$j)
- c 0
- s conc=1,dev=$i d halt
-webx ; exit
- q
-webe ; error
- i $d(req3("HTTP_SEC_WEBSOCKET_KEY")) d event^%zmgsis("websocket error: "_$$error())
- s req=""
- s req=req_"HTTP/1.1 503 SERVICE UNAVAILABLE"_$c(13,10)
- s req=req_"Content-Type: text/plain"_$c(13,10)
- s req=req_"Connection: close"_$c(13,10)
- s req=req_$c(13,10)
- s req=req_"error calling web function "_$g(ref)_$g(refn)_$c(13,10)
- s req=req_$$error()
- s req=req_"web functions contain two arguments"_$c(13,10)
- w req
- q
- ;
-webex(cgi,data)
- n req,x,y
- s req=""
- s req=req_"HTTP/1.1 200 OK"_$c(13,10)
- s req=req_"Content-Type: text/plain"_$c(13,10)
- s req=req_"Connection: close"_$c(13,10)
- s req=req_$c(13,10)
- w req
- w "Server="_$$getzv()_$c(13,10)
- w "Mgsi_Version="_$$v()_$c(13,10)
- w $c(13,10)
- s x="" f  s x=$o(cgi(x)) q:x=""  w x_"="_$g(cgi(x))_$c(13,10)
- w $c(13,10)
- s x="" f  s x=$o(data(x)) q:x=""  s y="" f  s y=$o(data(x,y)) q:y=""  w x_":"_y_"="_$g(data(x,y))_$c(13,10)
- q
- ;
-ws(cgi,data)
- n status,data,timeout
- new $ztrap set $ztrap="zgoto "_$zlevel_":wse^%zmgsis"
- s status=$$wsstart^%zmgsis()
- s timeout=10
- s data=""
- f i=1:1:10 d  i data="exit" q
- . n i
- . s status=$$wsread^%zmgsis(.data,timeout)
- . i status=-2 s data="exit" q
- . i status=-1 s data="timeout event ("_timeout_"): $h="_$h_"; $zv="_$$getzv()
- . i data="exit" q
- . s status=$$wswrite^%zmgsis(data)
- . q
- q
-wse ; error
- d event^%zmgsis("websocket test error: "_$$error())
- q
- ;
-wsstart() ; accept request for websocket server
- n status,res
- s status=1
- s res=""
- s res=res_"HTTP/1.1 200 OK"_$char(13,10)
- s res=res_"Content-Type: text/html"_$char(13,10)
- s res=res_"Connection: close"_$char(13,10)
- s res=res_$char(13,10)
- w res
- d flush
- d end
- q status
- ;
-wsreject ; reject request for websocket server
- n status,res
- s status=1
- s res=""
- s res=res_"HTTP/1.1 403 FORBIDDEN"_$char(13,10)
- s res=res_"Content-Type: text/html"_$char(13,10)
- s res=res_"Connection: close"_$char(13,10)
- s res=res_$char(13,10)
- w res
- d flush
- q status
- ;
- ;s x=$$wsehead(i,7),z=$$wsdhead(x,.y)
-wsread(data,timeout) ; websocket - read from client
- n status,head,type
- new $ztrap set $ztrap="zgoto "_$zlevel_":wsreade^%zmgsis"
- s status=1
- r head#5:timeout e  s status=0
- i 'status s status=-1 g wsreadx
- i $l(head)'=5 s status=-2 g wsreadx
- s size=$$wsdhead(head,.type)
- r data#size:timeout e  s status=0
-wsreadx ; exit
- i status=-2 s ^%zmgsi("ws",$j,"status")=status
- q status
-wsreade ; error
- s ^%zmgsi("ws",$j,"status")=-2
- q -2
- ;
-wswrite(data) ; websocket - write to client
- n status,head,type,size
- new $ztrap set $ztrap="zgoto "_$zlevel_":wswritee^%zmgsis"
- s status=1
- s type=0
- s size=$l(data)
- s head=$$wsehead(size,type)
- w (head_data)
- d flush
- q status
-wswritee ; error
- q -1
- ;
-wsexit() ; websocket - end server session
- n status,size,type
- s status=1
- s size=0
- s type=3
- s head=$$wsehead(size,type)
- w head
- d flush
- q status
- ;
-http ; http
- new $ztrap set $ztrap="zgoto "_$zlevel_":httpe^%zmgsis"
- i '$d(%zcs("ifc")) s res(1)=$c(1,2,1,10)_"0sc"_$c(10) w res(1)
- i argc<2 q
- s x=$$http1(.req2,@req(3))
-httpx ; exit
- k ^%zmg("mpc",$j,"content")
- q
-httpe ; error
- w "<html><head><title>m_client: error</title></head><h2>extc is not installed on this computer<h2></html>"
- q
- ;
-http1(%cgievar,content) ; http
- n (%cgievar,content)
- s test=0
- i test d  q 0
- . w "<br><b>cgi</b>"
- . s x="" f  s x=$o(%cgievar(x)) q:x=""  w "<br>"_x_"="_$g(%cgievar(x))
- . w "<br><b>content</b>"
- . s x="" f  s x=$o(^%zmg("mpc",$j,"content",x)) q:x=""  w "<br>"_x_"="_$g(^%zmg("mpc",$j,"content",x))
- . q
- i $g(%cgievar("key_extcserver"))="true" d  quit 1
- . ; break out to extc server here
- . s namespace=$g(%cgievar("key_namespace"))
- . s:namespace'="" namespace=$g(^%extc("system","phpsettings","namespace",namespace))
- . s:namespace="" namespace=$g(^%extc("system","phpsettings","defaultnamespace"))
- . s:namespace="" namespace="%cachelib"
- . d phpserver^%exmlserver
- quit 0
- ; 
-proc ; m extrinsic function
- i argc<2 q
- s argz=argc
- s fun=1 d ref
- i argc=2 x "n ("_refn_") s req(-1)=$$"_ref_"()"
- i argc>2 x "n ("_refn_") s req(-1)=$$"_ref
- s res=$g(req(-1))
- d res
- q
- ;
-meth ; m (cos) method
- ;
- ; synopsis:
- ; s err=$ClassMethod(classname,methodname,param1,...,paramn)
- ;
- ; s classname="extc.domapi"
- ; s methodname="opendom"
- ; s err=$ClassMethod(classname,methodname)
- ;
- ; ; this is equivalent to ...
- ; s err=##class(extc.domapi).opendom()
- ; 
- ; s methodname="getdocumentnode"
- ; s documentname="extcdom2"
- ; s err=$ClassMethod(classname,methodname,documentname)
- ; ; this is equivalent to ...
- ; s err=##class(extc.domapi).getdocumentnode("extcdom2")
- ;
- i argc<1 q
- s argz=argc
- s fun=1 d oref
- s ref=$tr($p(ref,",",1,2),".","")_","_$p(ref,",",3,999)
- i argc=1 x "n ("_refn_") s req(-1)=$ClassMethod()"
- i argc>1 x "n ("_refn_") s req(-1)=$ClassMethod("_ref_")"
- s res=$g(req(-1))
- d res
- q
- ;
-sort(a) ; sort an array
- q 1
- ;
-ref ; global reference
- n com,i,strt,a1
- s array=0,refn="res,req,extra,global,oversize"
- i argc<2 q
- s a1=$g(@req(2))
- s strt=2 i a1?1"^"."^" s strt=strt+1
- s ref=@req(strt) i argc=strt q
- i strt'<argz q
+ref(req,argc,argz,fun) ; global reference
+ n ref,com,i,strt,var
+ i argc<2 q ""
+ s var=$g(@req(2))
+ s strt=2 i var?1"^"."^" s strt=strt+1
+ s ref=@req(strt) i argc=strt q ref
+ i strt'<argz q ref
  s ref=ref_"("
- s com="" f i=strt+1:1:argz s refn=refn_","_req(i),ref=ref_com_$s(fun:".",1:"")_req(i),com=","
+ s com="" f i=strt+1:1:argz s ref=ref_com_$s(fun:".",1:"")_req(i),com=","
  s ref=ref_")"
- q
+ q ref
  ;
-oref ; object reference
- n com,i,strt,a1
- s array=0,refn="req,extra,global,oversize"
- i argc<2 q
- s a1=$g(@req(2))
- s strt=2 i a1?1"^"."^" s strt=strt+1
- i '$d(req(strt)) q
+oref(req,argc,fun) ; object reference
+ n ref,com,i,strt,var
+ i argc<2 q ""
+ s var=$g(@req(2))
+ s strt=2 i var?1"^"."^" s strt=strt+1
+ i '$d(req(strt)) q ""
  s ref=""
- s com="" f i=strt:1:argz s refn=refn_","_req(i),ref=ref_com_$s(fun:".",1:"")_req(i),com=","
- q
+ s com="" f i=strt:1:argz s ref=ref_com_$s(fun&((i-strt)>1):".",1:"")_req(i),com=","
+ q ref
  ;
-res ; return result
- n i,a,sn,argc
- s maxlen=$$getslen()
- d vars
+res(%zcs,req,argz,res) ; return result
+ n maxlen,anybyref,byref,argc,sn,size,head,array,x
+ s maxlen=$$getmsl()
  s anybyref=0 f argc=1:1:argz q:'$d(req(argc))  i $g(req(argc,1)) s anybyref=1 q
  i 'anybyref d  q
- . d send($g(res))
- . i oversize f sn=1:1 q:'$d(^mgsi($j,0,extra,sn))  d send($g(^(sn)))
+ . d send(.%zcs,$g(res))
+ . i %zcs("oversize") f sn=1:1 q:'$d(^mgsi($j,0,%zcs("extra"),sn))  d send(.%zcs,$g(^(sn)))
  . q
- s res(1)="00000cc"_$c(10)
+ s %zcs("buffer",1)="00000cc"_$c(10)
  s size=$l($g(res)),byref=0
- i oversize f sn=1:1 q:'$d(^mgsi($j,0,extra,sn))  s size=size+$l(^(sn))
- s x=$$ehead(.head,size,byref,ddata)
- d send(head)
- d send($g(res))
- i oversize f sn=1:1 q:'$d(^mgsi($j,0,extra,sn))  d send($g(^(sn)))
+ i %zcs("oversize") f sn=1:1 q:'$d(^mgsi($j,0,%zcs("extra"),sn))  s size=size+$l(^(sn))
+ s x=$$ehead(.head,size,byref,%zcs("ddata"))
+ d send(.%zcs,head)
+ d send(.%zcs,$g(res))
+ i %zcs("oversize") f sn=1:1 q:'$d(^mgsi($j,0,%zcs("extra"),sn))  d send(.%zcs,$g(^(sn)))
  f argc=1:1:argz q:'$d(req(argc))  d
  . s byref=$g(req(argc,1))
  . s array=$g(req(argc,0))
- . i 'byref s size=0,x=$$ehead(.head,size,byref,ddata) d send(head) q
+ . i 'byref s size=0,x=$$ehead(.head,size,byref,%zcs("ddata")) d send(.%zcs,head) q
  . i 'array d  q
  . . s size=$l($g(@req(argc)))
- . . f sn=1:1 q:'$d(@(req(argc)_"(extra,sn)"))  s size=size+$l($g(@(req(argc)_"(extra,sn)")))
- . . s x=$$ehead(.head,size,byref,ddata)
- . . d send(head)
- . . d send($g(@req(argc)))
- . . f sn=1:1 q:'$d(@(req(argc)_"(extra,sn)"))  d send($g(@(req(argc)_"(extra,sn)")))
+ . . f sn=1:1 q:'$d(@(req(argc)_"(%zcs(""extra""),sn)"))  s size=size+$l($g(@(req(argc)_"(%zcs(""extra""),sn)")))
+ . . s x=$$ehead(.head,size,byref,%zcs("ddata"))
+ . . d send(.%zcs,head)
+ . . d send(.%zcs,$g(@req(argc)))
+ . . f sn=1:1 q:'$d(@(req(argc)_"(%zcs(""extra""),sn)"))  d send(.%zcs,$g(@(req(argc)_"(%zcs(""extra""),sn)")))
  . . q
- . s x=$$ehead(.head,0,0,darec)
- . d send(head)
- . d resa
- . s x=$$ehead(.head,0,0,deod)
- . d send(head)
+ . s x=$$ehead(.head,0,0,%zcs("darec"))
+ . d send(.%zcs,head)
+ . d resa(.%zcs,.req,argc)
+ . s x=$$ehead(.head,0,0,%zcs("deod"))
+ . d send(.%zcs,head)
  . q
  q
  ;
-res1 ; link to array parser
- d send($g(req(argc,0))_$g(req(argc,1)))
- i '$g(req(argc,1)) q
- i $g(req(argc,0))=0 d send($g(@req(argc))) q
- s a=req(argc),fkey="" i global s a="^mgsi",fkey="$j,argc-2"
- d resa
- q
- ;
-resa ; return array
- n ref,kn,ok,def,data,txt
+resa(%zcs,req,argc) ; return array
+ n avar,byref,xkey,fkey,spc,x,size,sn,kn,ref
  new $ztrap set $ztrap="zgoto "_$zlevel_":resae^%zmgsis"
  s byref=0
- s a=req(argc),fkey="" i global s a="^mgsi",fkey="$j,argc-2"
- i a="" q
- i global d
- . i ($d(@(a_"("_fkey_")"))#10) d
- . . s txt=" ",x=$$ehead(.head,$l(txt),byref,dakey) d send(head),send(txt)
+ s avar=req(argc),fkey="" i %zcs("global") s avar="^mgsi",fkey="$j,argc-2"
+ i avar="" q
+ i %zcs("global") d
+ . i ($d(@(avar_"("_fkey_")"))#10) d
+ . . s spc=" ",x=$$ehead(.head,$l(spc),byref,%zcs("dakey")) d send(.%zcs,head),send(.%zcs,spc)
  . . s size=0
  . . s size=size+$l($g(@req(argc)))
- . . f sn=1:1 q:'$d(@(a_"("_fkey_","_"extra,sn)"))  s size=size+$l($g(^(sn)))
- . . s x=$$ehead(.head,size,byref,ddata) d send(head)
- . . d send($g(@req(argc)))
- . . f sn=1:1 q:'$d(@(a_"("_fkey_","_"extra,sn)"))  d send($g(^(sn)))
+ . . f sn=1:1 q:'$d(@(avar_"("_fkey_","_"%zcs(""extra""),sn)"))  s size=size+$l($g(^(sn)))
+ . . s x=$$ehead(.head,size,byref,%zcs("ddata")) d send(.%zcs,head)
+ . . d send(.%zcs,$g(@req(argc)))
+ . . f sn=1:1 q:'$d(@(avar_"("_fkey_","_"%zcs(""extra""),sn)"))  d send(.%zcs,$g(^(sn)))
  . . q
  . s fkey=fkey_","
  . q
- i 'global d
- . i ($d(@a)#10),$l($g(@a)) d
- . . s txt=" ",x=$$ehead(.head,$l(txt),byref,dakey) d send(head),send(txt)
+ i '%zcs("global") d
+ . i ($d(@avar)#10),$l($g(@avar)) d
+ . . s spc=" ",x=$$ehead(.head,$l(spc),byref,%zcs("dakey")) d send(.%zcs,head),send(.%zcs,spc)
  . . s size=0
- . . s size=size+$l($g(@a))
- . . f sn=1:1 q:'$d(@(a_"(extra,sn)"))  s size=size+$l($g(@(a_"(extra,sn)")))
- . . s x=$$ehead(.head,size,byref,ddata) d send(head)
- . . d send($g(@a))
- . . f sn=1:1 q:'$d(@(a_"(extra,sn)"))  d send($g(@(a_"(extra,sn)")))
+ . . s size=size+$l($g(@avar))
+ . . f sn=1:1 q:'$d(@(avar_"(%zcs(""extra""),sn)"))  s size=size+$l($g(@(avar_"(%zcs(""extra""),sn)")))
+ . . s x=$$ehead(.head,size,byref,%zcs("ddata")) d send(.%zcs,head)
+ . . d send(.%zcs,$g(@avar))
+ . . f sn=1:1 q:'$d(@(avar_"(%zcs(""extra""),sn)"))  d send(.%zcs,$g(@(avar_"(%zcs(""extra""),sn)")))
  . . q
  . q
- s ok=0,kn=1,x(kn)="",ref="x("_kn_")"
- f  s x(kn)=$o(@(a_"("_fkey_ref_")")) d resa1 i ok q
+ s kn=1,xkey(kn)="",ref="xkey("_kn_")"
+ f  s xkey(kn)=$o(@(avar_"("_fkey_ref_")")) i $$resa1(.%zcs,avar,fkey,.ref,byref,.xkey,.kn) q
  q
 resae ; error
  new $ztrap set $ztrap="zgoto "_$zlevel_":"
  q
  ;
-resa1 ; array node
- i x(kn)=extra q
- i x(kn)="",kn=1 s ok=1 q
- i x(kn)="" s kn=kn-1,ref=$p(ref,",",1,$l(ref,",")-1) q
- s def=$d(@(a_"("_fkey_ref_")")) i (def\10) d resa3
- s data=$g(@(a_"("_fkey_ref_")"))
- i (def#10) d resa2
- i (def\10) s kn=kn+1,x(kn)="",ref=ref_","_"x("_kn_")"
- q
+resa1(%zcs,avar,fkey,ref,byref,xkey,kn) ; array node
+ n def,data
+ i xkey(kn)=%zcs("extra") q 0
+ i xkey(kn)="",kn=1 q 1
+ i xkey(kn)="" s kn=kn-1,ref=$p(ref,",",1,$l(ref,",")-1) q
+ s def=$d(@(avar_"("_fkey_ref_")")) i (def\10),$$resa3(a,ref) s def=1
+ s data=$g(@(avar_"("_fkey_ref_")"))
+ i (def#10) d resa2(.%zcs,avar,fkey,ref,data,byref,.xkey,kn)
+ i (def\10) s kn=kn+1,xkey(kn)="",ref=ref_","_"xkey("_kn_")"
+ q 0
  ;
-resa2 ; array node data
- n i,spc
- f i=1:1:kn s x=$$ehead(.head,$l(x(i)),byref,dakey) d send(head),send(x(i))
- i $g(%zcs("client"))="z",(def\10) s spc=" ",x=$$ehead(.head,$l(spc),byref,dakey) d send(head),send(spc)
+resa2(%zcs,avar,fkey,ref,data,byref,xkey,kn) ; array node data
+ n i,spc,x,head,size,sn
+ f i=1:1:kn s x=$$ehead(.head,$l(xkey(i)),byref,%zcs("dakey")) d send(.%zcs,head),send(.%zcs,xkey(i))
+ i $g(%zcs("client"))="z",(def\10) s spc=" ",x=$$ehead(.head,$l(spc),byref,%zcs("dakey")) d send(.%zcs,head),send(.%zcs,spc)
  s size=$l(data)
- f sn=1:1 q:'$d(@(a_"("_fkey_ref_",extra,sn)"))  s size=size+$l($g(@(a_"("_fkey_ref_",extra,sn)")))
- s x=$$ehead(.head,size,byref,ddata) d send(head)
- d send(data)
- f sn=1:1 q:'$d(@(a_"("_fkey_ref_",extra,sn)"))  d send($g(@(a_"("_fkey_ref_",extra,sn)")))
+ f sn=1:1 q:'$d(@(avar_"("_fkey_ref_",%zcs(""extra""),sn)"))  s size=size+$l($g(@(avar_"("_fkey_ref_",%zcs(""extra""),sn)")))
+ s x=$$ehead(.head,size,byref,%zcs("ddata")) d send(.%zcs,head)
+ d send(.%zcs,data)
+ f sn=1:1 q:'$d(@(avar_"("_fkey_ref_",%zcs(""extra""),sn)"))  d send(.%zcs,$g(@(avar_"("_fkey_ref_",%zcs(""extra""),sn)")))
  q
  ;
-resa3 ; array node data with descendants - test for non-extra data
- n y
- s y="" f  s y=$o(@(a_"("_ref_",y)")) q:y=""  i y'=extra q
- i y="" s def=1
- q
+resa3(avar,ref) ; array node data with descendants - test for non-extra data
+ n x,def
+ s def=0
+ s x="" f  s x=$o(@(avar_"("_ref_",x)")) q:x=""  i x'=%zcs("extra") q
+ i x="" s def=1
+ q def
  ;
-send(data) ; send data
+send(%zcs,data) ; send data
  n n
- ;d event(data_$g(res(1)))
- s n=$o(res(""),-1)
+ s n=$o(%zcs("buffer",""),-1)
  i n="" s n=1
- i $l($g(res(n)))+$l(data)>maxlen s n=n+1
- s res(n)=$g(res(n))_data
+ i $l($g(%zcs("buffer",n)))+$l(data)>%zcs("maxlen") s n=n+1
+ s %zcs("buffer",n)=$g(%zcs("buffer",n))_data
  q
  ;
 error() ; get last error
@@ -1368,49 +759,11 @@ error() ; get last error
 seterror(v) ; set error
  q
  ;
-getuci() ; get namespace/uci
- n %uci
- new $ztrap set $ztrap="zgoto "_$zlevel_":getucie^%zmgsis"
- s %uci=$zg
- q %uci
-getucie ; error
- q ""
- ;
-getslen() ; get maximum string length
- s slen=$s($$isidb():32000,$$ism21():1023,$$ismsm():250,$$isdsm():250,$$isydb():32000,1:250)
- q slen
- ;
-lcase(string) ; convert to lower case
- q $tr(string,"abcdefghijklmnopqrstuvwxyz","abcdefghijklmnopqrstuvwxyz")
- ;
-ucase(string) ; convert to upper case
- q $tr(string,"abcdefghijklmnopqrstuvwxyz","abcdefghijklmnopqrstuvwxyz")
- ;
 setio(tblname) ; set i/o translation
  new $ztrap set $ztrap="zgoto "_$zlevel_":setioe^%zmgsis"
  q ""
 setioe ; error - do nothing
  q ""
- ;
-zcvt(buffer,tblname) ; translate buffer
- new $ztrap set $ztrap="zgoto "_$zlevel_":zcvte^%zmgsis"
- q buffer
-zcvte ; error - do nothing
- q buffer
- ;
-wsmqtest ; test link to websphere mq
- n %zmgmq,response
- w !,"sending test message to mgsi/websphere mq interface..."
- s response=$$wsmq("127.0.0.1",7040,"test",.%zmgmq)
- w !,"response: ",response," ",$g(%zmgmq("recv"))
- q
- ;
-wsmqtstx(ip,port) ; test link to websphere mq: ip address and port specified
- n %zmgmq,response
- w !,"sending test message to mgsi/websphere mq interface..."
- s response=$$wsmq(ip,port,"test",.%zmgmq)
- w !,"response: ",response," ",$g(%zmgmq("recv"))
- q
  ;
 htest ; return html
  n systype
@@ -1447,10 +800,10 @@ ptest2(p1,p2) ; manipulate an array
  s n=0,x="" f  s x=$o(p1(x)) q:x=""  s n=n+1
  s p1("key from m - 1")="value 1"
  s p1("key from m - 2")="value 2"
- ; s p1("key from m - 2",extra,1)=" ... more data ..."
- ; s p1("key from m - 2",extra,2)=" ... and more data"
+ ; s p1("key from m - 2",%zcs("extra"),1)=" ... more data ..."
+ ; s p1("key from m - 2",%zcs("extra"),2)=" ... and more data"
  s p2="stratford"
- ; s ^mgsi($j,0,extra,1)=" ... more output ...",^(2)=" ... and more output",oversize=1
+ ; s ^mgsi($j,0,%zcs("extra"),1)=" ... more output ...",^(2)=" ... and more output",%zcs("oversize")=1
  q "result from "_systype_" process: "_$j_"; namespace: "_$$getuci()_"; "_n_" elements were received in an array, 2 were added by this procedure"
  ;
 setunpw(username,password)
@@ -1470,16 +823,6 @@ checkunpw(username,password)
  i username1'=username d event("access violation: bad username") q 0
  i password1'=password d event("access violation: bad password") q 0
  q 1
- ;
-sst(%0) ; save symbol table
- new $ztrap set $ztrap="zgoto "_$zlevel_":sste^%zmgsis"
- n %
- k @%0
- s %0=$e(%0,1,$l(%0)-1)
- s %="%" f  s %=$o(@%) q:%=""  i %'="%0" m @(%0_",%)")=@%
- q 1
-sste ; error
- q 0
  ;
 dbx(ctx,cmnd,data,len,param) ; entry point from fixed binding
  n %r,obufsize,idx,offset,rc,sort,res,ze,oref,type
@@ -1504,21 +847,27 @@ dbxe ; Error
  q -1
  ;
 dbxnet(buf) ; new wire protocol for access to M
- n %oref,abyref,argc,array,cmnd,conc,dakey,darec,ddata,deod,extra,global,i,maxlen,mqinfo,nato,offset,ok,oref,oversize,pcmnd,port,pport,rdxbuf,rdxptr,rdxrlen,rdxsize,req,res,sl,slen,sn,sort,type,uci,var,version,x
+ n %zcs,%oref,argc,cmnd,i,offset,ok,oref,pcmnd,port,pport,req,res,slen,sn,sort,type,uci,var,x
  s uci=$p(buf,"~",2)
  i uci'="" d uci(uci)
  s res=$zv
  s res=$$esize256($l(res))_"0"_res
  w res d flush
+ ;d event("$j="_$j_" *** Initialise ***")
 dbxnet1 ; request loop
  r head#5
  s len=$$dsize256(head)
  s len=len-5
  s cmnd=$e(head,5)
+ ;d event("$j="_$j_"; len="_len_"; cmnd="_$a(cmnd))
  i len<1,$a(cmnd)=90 w $$ping("") d flush g dbxnet1
  i len>$$getmsl() s res="DB Server string size exceeded ("_$$getmsl()_")",sort=11,type=1,res=$$esize256($l(res))_$c((sort*20)+type)_res w res d flush c $io h
  i len<1 q
  r data#len
+ i $a(cmnd)=61 tstart  s res=0,res=$$esize256($l(res))_$c(21)_res w res d flush g dbxnet1
+ i $a(cmnd)=62 s res=$tlevel,res=$$esize256($l(res))_$c(21)_res w res d flush g dbxnet1
+ i $a(cmnd)=63 tcommit  s res=0,res=$$esize256($l(res))_$c(21)_res w res d flush g dbxnet1
+ i $a(cmnd)=64 trollback  s res=0,res=$$esize256($l(res))_$c(21)_res w res d flush g dbxnet1
  s res=$$dbx(0,cmnd,data,len,"")
  w res d flush
  g dbxnet1
@@ -1573,6 +922,10 @@ dbxcmnd(%r,%oref,cmnd,res) ; Execute command
  i cmnd=31 s res=$$dbxfun(.%r,"$$"_%r(1)_"("_$$dbxref(.%r,2,%r,1)_")") q 0
  i cmnd=51 s res=$o(@%r(1)) q 0
  i cmnd=52 s res=$o(@%r(1),-1) q 0
+ i cmnd=61 tstart  s res=0 q 0
+ i cmnd=62 s res=$tlevel q 0
+ i cmnd=63 tcommit  s res=0 q 0
+ i cmnd=64 trollback  s res=0 q 0
  s res="<SYNTAX>"
  q -1
 dbxcmnde ; Error
@@ -1830,4 +1183,40 @@ sqlrow(id,rn,params) ; Get a row
 sqldel(id,params) ; Delete SQL result set
  k ^mgsqls($j,id)
  q ""
+ ;
+event(text) ; log m-side event
+ n i,x,y,n,emax
+ new $ztrap set $ztrap="zgoto "_$zlevel_":evente^%zmgsis"
+ f i=1:1 s x=$e(text,i) q:x=""  s y=$s(x=$c(13):"\r",x=$c(10):"\n",1:"") i y'="" s $e(text,i)=y
+ s emax=100 ; maximum log size (no. messages)
+ l +^%zmgsi("log")
+ s n=$g(^%zmgsi("log")) i n="" s n=0
+ s n=n+1,^%zmgsi("log")=n
+ l -^%zmgsi("log")
+ s ^%zmgsi("log",n,0)=$$head(),^%zmgsi("log",n,1)=text
+ f n=n-emax:-1 q:'$d(^%zmgsi("log",n))  k ^(n)
+ q
+evente ; error
+ q
+ ;
+ddate(date) ; decode m date
+ new $ztrap set $ztrap="zgoto "_$zlevel_":ddatee^%zmgsis"
+ q $zd(date,2)
+ddatee ; no $zd function
+ q date
+ ;
+dtime(mtime,format) ; decode m time
+ n h,m,s
+ i mtime="" q ""
+ i mtime["," s mtime=$p(mtime,",",2)
+ i format=0 q (mtime\3600)_":"_(mtime#3600\60)
+ s h=mtime\3600,s=mtime-(h*3600),m=s\60,s=s#60
+ q $s(h<10:"0",1:"")_h_":"_$s(m<10:"0",1:"")_m_":"_$s(s<10:"0",1:"")_s
+ ;
+head() ; format header record
+ n uci
+ new $ztrap set $ztrap="zgoto "_$zlevel_":heade^%zmgsis"
+ s uci=$$getuci()
+heade ; error
+ q $$ddate(+$h)_" at "_$$dtime($p($h,",",2),0)_"~"_$g(%zcs("port"))_"~"_uci
  ;
