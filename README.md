@@ -27,8 +27,8 @@ The M/Gateway Service Integration Gateway (**SIG**) is an Open Source network-ba
 
 There are two parts to a complete SIG installation:
 
-* The DB Superserver.  This component resides inside the DB Server and is independently required by other M/Gateway Open Source products.
-* The SIG itself.  This is effectively a client to the DB Superserver.
+* The **DB Superserver**.  This component resides inside the DB Server and is independently required by other M/Gateway Open Source products.
+* The **SIG** itself.  This is effectively a client to the DB Superserver.
 
 
 ## <a name="PreReq"></a> Pre-requisites
@@ -82,7 +82,7 @@ Link all the **zmgsi** routines and check the installation:
        do ^%zmgsi
 
        M/Gateway Developments Ltd - Service Integration Gateway
-       Version: 4.0; Revision 16 (11 February 2020)
+       Version: 4.0; Revision 16 (11 February 2021)
 
 
 Note that the version of **zmgsi** is successfully displayed.
@@ -105,7 +105,7 @@ Start the DB Superserver using the following command:
 To use a server TCP port other than 7041, specify it in the start-up command (as opposed to using zero to indicate the default port of 7041).
 
 
-### Starting YottaDB Supererver processes via the xinetd daemon
+### Starting YottaDB Superserver processes via the xinetd daemon
 
 
 Network connectivity to **YottaDB** is managed via the **xinetd** service.  First create the following launch script (called **zmgsi\_ydb** here):
@@ -164,7 +164,7 @@ Finally restart the **xinetd** service:
 There are three parts to a complete **SIG** installation and configuration.
 
 * The **SIG** executable (a UNIX Daemon or Windows Service) (**mgsi** or **mgsi.exe**).
-* The DB Superserver described previously: **%zmgsi**
+* The **DB Superserver** described previously: the **%zmgsi** routines.
 * A network configuration to bind the former two elements together.
 
 ### Building the SIG executable
