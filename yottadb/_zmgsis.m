@@ -186,7 +186,7 @@ delavars(a) ; delete argument variables
  k a("buffer") s a("buffer")=""
  q
  ;
-esize(esize,size,base)
+esize(esize,size,base) ; encode record size
  n i,x
  i base'=10 g esize1
  s esize=size
@@ -196,7 +196,7 @@ esize1 ; up to base 62
  f i=1:1 s x=(size\(base**i)) q:'x  s esize=$$ebase62(x#base,base)_esize
  q $l(esize)
  ;
-dsize(esize,len,base)
+dsize(esize,len,base) ; decode record size
  n i,x,size
  i base'=10 g dsize1
  s size=+$e(esize,1,len)
@@ -222,16 +222,11 @@ dbase62(nxx,base) ; decode single digit (up to) base-62 number
  ;
 esize256(dsize) ; create little-endian 32-bit unsigned integer from M decimal
  q $c(dsize#256)_$c(((dsize\256)#256))_$c(((dsize\(256**2))#256))_$c(((dsize\(256**3))#256))
- n esize
- s esize=+dsize f  q:$l(esize)=4  s esize="0"_esize
- q esize
  ;
 dsize256(esize) ; convert little-endian 32-bit unsigned integer to M decimal
  q ($a(esize,4)*(256**3))+($a(esize,3)*(256**2))+($a(esize,2)*256)+$a(esize,1)
- s dsize=+esize
- q dsize
  ;
-ehead(head,size,byref,type)
+ehead(head,size,byref,type) ; encode header record
  n slen,hlen,code
  s slen=$$esize(.esize,size,10)
  s code=slen+(type*8)+(byref*64)
@@ -239,7 +234,7 @@ ehead(head,size,byref,type)
  s hlen=slen+1
  q hlen
  ;
-dhead(head,size,byref,type)
+dhead(head,size,byref,type) ; decode header record
  n slen,hlen,code
  s code=$a(head,1)
  s byref=code\64
