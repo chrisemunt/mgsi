@@ -94,7 +94,7 @@ The default TCP server port for the DB Superserver (**zmgsi**) is **7041**.  If 
 
 In YottaDB, the DB Superserver can either be started from the DB (i.e. M) command prompt or Superserver processes can be started by the **xinetd** daemon.
 
-### Starting the DB Supererver from the DB command prompt
+### Starting the DB Superserver from the DB command prompt
 
 * For InterSystems DB servers the concurrent TCP service should be started in the **%SYS** Namespace.
 
