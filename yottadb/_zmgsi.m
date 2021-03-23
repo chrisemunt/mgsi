@@ -26,14 +26,23 @@ a0 d vers^%zmgsis
  q
  ;
 start(port) ; start daemon
+ n pwnd,v,vn,pport
  new $ztrap set $ztrap="zgoto "_$zlevel_":starte^%zmgsi"
+ s pwnd=0 i port["pw",port[":" s pwnd=1,port=$p(port,":",2)
  s port=+$g(port)
- k ^%zmgsi("stop")
+ i 'port s port=7041
+ k ^%zmgsi("stop",port)
  ; Concurrent tcp service (Cache, IRIS, M21, MSM, YottaDB)
- i $$isidb^%zmgsis()!$$ism21^%zmgsis()!$$ismsm^%zmgsis()!$$isydb^%zmgsis() j accept($g(port)) q
- w !,"This M system does not support a concurrent TCP server"
+ i '$$isidb^%zmgsis(),'$$ism21^%zmgsis(),'$$ismsm^%zmgsis(),'$$isydb^%zmgsis() g starte
+ i 'pwnd j accept($g(port)) q
+ d &pwind.version(.v)
+ s vn=$p(v,":",2)
+ s vn=$p(vn,".",1)*100+($p(vn,".",2)*10)
+ i vn<120 w !,"This version of mg_pwind ("_v_") does not support networking" g starte
+ j acceptpw($g(port))
  q
 starte ; error
+ w !,"This M system does not support a concurrent TCP server"
  q
  ;
 eeestart ; start
@@ -41,9 +50,12 @@ eeestart ; start
  q
  ;
 stop(port) ; stop
+ n pwnd,job,pport
  w !,"Terminating the %zmgsi service ... "
+ s pwnd=0 i port["pw",port[":" s pwnd=1,port=$p(port,":",2)
  s pport=+$g(port) i pport="" q
  i 'pport s pport=7041
+ s ^%zmgsi("stop",port)=1
  s job=$g(^%zmgsi("server",pport))
  d killproc(job)
 stopx ; service should have terminated
@@ -107,6 +119,34 @@ accepte ; error
  i $g(dev)'="" u dev
  g accept2
 halt ; halt
+ h
+ ;
+acceptpw(port) ; concurrent tcp service (YottaDB/mg_pwind)
+ n key,error,ds
+ new $ztrap set $ztrap="zgoto "_$zlevel_":acceptpwe^%zmgsi"
+ s ^%zmgsi("server",port)=$j
+ d &pwind.tcpservinit(port,"",.error) i error'="" d event^%zmgsis("mg_pwind error (tcpservinit): "_error) g acceptpwx
+acceptpw1 ; main accept loop
+ s key="",error=""
+acceptpw2 ; main accept retry loop
+ i $d(^%zmgsi("stop",port)) k ^%zmgsi("stop",port) g acceptpwx
+ d &pwind.tcpservaccept(.key,.error)
+ i error="<EINTR>" s error="" g acceptpw2
+ i error="<TIMEOUT>" s error="" g acceptpw2
+ i error'="" d event^%zmgsis("mg_pwind error (tcpservaccept): "_$h_error) g acceptpwx
+ s ds=$p(key,"|",5) i ds'="",'$d(^%zmgsi("server",port,"ds")) s ^%zmgsi("server",port,"ds")=ds
+ i key="" h 1 g acceptpw1
+ d event^%zmgsis("incoming connection from "_$piece(key,"|",6)_", starting child server process")
+ j child^%zmgsis(key,port)
+ g acceptpw1
+acceptpwx ; exit
+ s ds=$g(^%zmgsi("server",port,"ds")) i ds="" s ds="server"
+ d &pwind.tcpservclose(ds)
+ d event^%zmgsis("mg_pwind server process exit")
+ h
+acceptpwe ; error
+ s error=$$error^%zmgsis()
+ d event^%zmgsis("mg_pwind error: "_error)
  h
  ;
 ylink ; link all routines

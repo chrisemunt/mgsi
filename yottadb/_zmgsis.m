@@ -49,12 +49,13 @@ a0 d vers q
  ; v3.5.14:  24 September 2020 (Add a getdatetime() function)
  ; v3.6.15:   6 November  2020 (Add functionality to support load balancing and failover in mg_web)
  ; v4.0.16:  11 February  2021 (Implement native concurrent TCP server for YottaDB; Transaction Processing; Review code base and remove unnecessary/defunct code)
+ ; v4.1.17:  23 March     2021 (Improve performance of network of YottaDB; Introduce support for the mg_pwind I/O subsystem)
  ;
 v() ; version and date
  n v,r,d
- s v="4.0"
- s r=16
- s d="11 February 2021"
+ s v="4.1"
+ s r=17
+ s d="23 March 2021"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -127,6 +128,8 @@ getsys() ; Get system type
 getmsl() ; Get maximum string length
  n max
  new $ztrap set $ztrap="zgoto "_$zlevel_":getmsle^%zmgsis"
+ q 1048576
+ i $$isydb() q 1048576
  i $$ism21() q 1023
  i $$ismsm() q 250
  i $$isdsm() q 250
@@ -244,14 +247,14 @@ dhead(head,size,byref,type) ; decode header record
  s size=0 i $l(head)'<hlen s size=$$dsize($e(head,2,slen+1),slen,10)
  q hlen
  ;
-recvex(len) ; read 'len' bytes from client
+recvex(%zcs,len) ; read 'len' bytes from client
  n x,nmax,n,ncnt
  i 'len q ""
  s x="",nmax=len,n=0,ncnt=0 f  r y#nmax d  q:'nmax  i ncnt>100 q
  . i y="" s ncnt=ncnt+1 q
  . s ncnt=0,x=x_y,n=n+$l(y),nmax=len-n
  . q
- i ncnt s x="" d halt ; client disconnect
+ i ncnt s x="" d halt(.%zcs) ; client disconnect
  q x
  ;
 recv(%zcs,len,clen,rlen) ; buffered read from client - initialize buffer using bvars(.%zcs)
@@ -272,7 +275,7 @@ recv(%zcs,len,clen,rlen) ; buffered read from client - initialize buffer using b
  . s result=$e(%zcs("recvbuf"),%zcs("recvptr")+1,%zcs("recvptr")+avail),%zcs("recvptr")=0,get=get-avail
  . s avail=clen-%zcs("recvrlen") i 'avail q
  . i avail>%zcs("maxlen") s avail=%zcs("maxlen")
- . s %zcs("recvbuf")=$$recvex(avail),%zcs("recvsize")=avail,%zcs("recvptr")=0,%zcs("recvrlen")=%zcs("recvrlen")+avail
+ . s %zcs("recvbuf")=$$recvex(.%zcs,avail),%zcs("recvsize")=avail,%zcs("recvptr")=0,%zcs("recvrlen")=%zcs("recvrlen")+avail
  . ;d event("%zcs(""recvbuf"")="_i_"="_%zcs("recvbuf"))
  . q
  s rlen=rlen+len
@@ -291,7 +294,7 @@ ifc(ctx,request,param) ; entry point from fixed binding
  n %zcs,argc,sn,type,var,req,cmnd,pcmnd,buf,byref,hlen,clen,rlen,result
  new $ztrap set $ztrap="zgoto "_$zlevel_":ifce^%zmgsis"
  i param["$zv" q $zv
- i param["dbx" q $$dbx(ctx,$e(request,5),$e(request,6,9999),$$dsize256(request),param)
+ i param["dbx" q $$dbx(.%zcs,ctx,$a($e(request,5)),$e(request,6,9999),$$dsize256(request),param)
  d vars(.%zcs)
  s %zcs("ifc")=1
  s argc=1
@@ -323,8 +326,10 @@ ifce ; error
  q "00000ce"_$c(10)_"m server error : ["_$g(req(2))_"]"_$tr($$error(),"<>%","[]^")
  ;
 child(pport,port) ; child
- n %zcs,x,argc,sn,type,var,req,cmnd,pcmnd,mcmnd,buf,byref,hlen,clen,rlen
+ n %zcs,x,argc,sn,type,var,req,cmnd,pcmnd,mcmnd,buf,byref,hlen,clen,rlen,error
  new $ztrap set $ztrap="zgoto "_$zlevel_":childe^%zmgsis"
+ i pport["|" s %zcs("pwnd")=pport,pport=$p(pport,"|",2)
+ i $d(%zcs("pwnd")) s %zcs("pwnd")=%zcs("pwnd")_"|"_$zd d &pwind.tcpchldinit(%zcs("pwnd"),"",.error) g:error="" child2 d event(error) d halt(.%zcs)
  i 'pport g child2
  u $principal
  ;
@@ -337,14 +342,16 @@ child3 ; read request
  ;d event("******* get next request *******")
  d bvars(.%zcs)
  s sn=0,type=0,var=%zcs("avar")_argc,req(argc)=var,(cmnd,pcmnd,buf)=""
+ i $d(%zcs("pwnd")) d &pwind.tcpread(.buf,0,$g(%zcs("idle_timeout")),.error) s buf=$p(buf,$c(10),1) g:error="" child4 d event(error) d halt(.%zcs)
  i '%zcs("idle_timeout") r *x
- i %zcs("idle_timeout") r *x:%zcs("idle_timeout") i '$t d halt ; no-activity timeout
- i x=0 d halt ; client disconnect
+ i %zcs("idle_timeout") r *x:%zcs("idle_timeout") i '$t d halt(.%zcs) ; no-activity timeout
+ i x=0 d halt(.%zcs) ; client disconnect
  s buf=$c(x) f  r *x q:x=10!(x=0)  s buf=buf_$c(x)
- i x=0 d halt ; client disconnect
+ i x=0 d halt(.%zcs) ; client disconnect
+child4 ; request header received
  i buf="xDBC" g main^%mgsqln
  i buf?1u.e1"HTTP/"1n1"."1n1c s buf=buf_$c(10) g main^%mgsqlw
- i $e(buf,1,4)="dbx1" d dbxnet^%zmgsis(buf) g halt
+ i $e(buf,1,4)="dbx1" d dbxnet^%zmgsis(.%zcs,buf) d halt(.%zcs)
  s type=0,byref=0 d req2(.%zcs,.req,argc,type,byref,buf,.cmnd,.pcmnd,.var) s @var=buf
  s cmnd=$p(buf,"^",2)
  s hlen=$l(buf),clen=0
@@ -374,11 +381,12 @@ child3 ; read request
  ;
 childe ; error
  d event($$error())
- i $$error()["read" g halt
- i $$error()["%gtm-e-ioeof" g halt
+ i $$error()["read" d halt(.%zcs)
+ i $$error()["%gtm-e-ioeof" d halt(.%zcs)
  g child2
  ;
 halt(%zcs) ; halt
+ i $d(%zcs("pwnd")) d &pwind.tcpclose()
  h
  ;
 req(%zcs,req,argc,clen,rlen,buf,cmnd,pcmnd,var) ; read request data
@@ -458,7 +466,7 @@ array2e ; error
  ;
 end(%zcs) ; terminate response
  n len,len62,i,head,x
- i '$d(%zcs("ifc")),$e($g(%zcs("buffer",1)),6,7)="sc" w $p(%zcs("buffer",1),"0",1) d flush q  ; streamed response
+ i '$d(%zcs("ifc")),$e($g(%zcs("buffer",1)),6,7)="sc" d writem(.%zcs,$p(%zcs("buffer",1),"0",1),1) q  ; streamed response
  s len=0
  f i=1:1 q:'$d(%zcs("buffer",i))  s len=len+$l(%zcs("buffer",i))
  s len=len-8
@@ -469,7 +477,7 @@ end(%zcs) ; terminate response
  s %zcs("buffer",1)=head_$e($g(%zcs("buffer",1)),9,99999)
  ; flush the lot out
  i $d(%zcs("ifc")) g end1
- f i=1:1 q:'$d(%zcs("buffer",i))  w %zcs("buffer",i)
+ f i=1:1 q:'$d(%zcs("buffer",i))  d writem(.%zcs,%zcs("buffer",i),0)
  d flush
  q
 end1 ; interface
@@ -498,7 +506,7 @@ dint(%zcs,req) ; initialise the service link
  s password=$p(username,$c(1),2),username=$p(username,$c(1),1)
  s usrchk=1
  s usrchk=$$checkunpw(password)
- i 'usrchk g halt
+ i 'usrchk d halt(.%zcs)
  ;d event(username_"|"_password)
  s version=$p($p(req,"version=",2),"&",1)
  s itimeout=+$p($p(req,"timeout=",2),"&",1)
@@ -577,14 +585,14 @@ mcom(%zcs,req,argc) ; execute M command
  . x "m "_var_"="_ref
  . q
  i cmnd="H" d  q  ; stream HTML content to client using M function
- . i '$d(%zcs("ifc")) s %zcs("buffer",1)=$c(1,2,1,10)_"0sc"_$c(10) w %zcs("buffer",1)
+ . i '$d(%zcs("ifc")) s %zcs("buffer",1)=$c(1,2,1,10)_"0sc"_$c(10) d writem(.%zcs,%zcs("buffer",1),0)
  . i argc<2 q
  . s (varn,com)="" f i=1:1:argc s varn=varn_com_%zcs("avar")_i,com="," 
  . s ref=$$ref(.req,argc,argc,0)
  . x "n ("_varn_") d "_ref
  . q
  i cmnd="y" d  q  ; stream HTML content to client using ISC ClassMethod
- . i '$d(%zcs("ifc")) s %zcs("buffer",1)=$c(1,2,1,10)_"0sc"_$c(10) w %zcs("buffer",1)
+ . i '$d(%zcs("ifc")) s %zcs("buffer",1)=$c(1,2,1,10)_"0sc"_$c(10) d writem(.%zcs,%zcs("buffer",1),0)
  . i argc<1 q
  . s varn="res" f i=1:1:argc s varn=varn_","_%zcs("avar")_i 
  . s ref=$$oref(req,argc,0)
@@ -819,7 +827,7 @@ checkunpw(username,password)
  i password1'=password d event("access violation: bad password") q 0
  q 1
  ;
-dbx(ctx,cmnd,data,len,param) ; entry point from fixed binding
+dbx(%zcs,ctx,cmnd,data,len,param) ; entry point from fixed binding
  n %r,obufsize,idx,offset,rc,sort,res,ze,oref,type
  new $ztrap set $ztrap="zgoto "_$zlevel_":dbxe^%zmgsis"
  s obufsize=$$dsize256($e(data,1,4))
@@ -830,7 +838,7 @@ dbx(ctx,cmnd,data,len,param) ; entry point from fixed binding
  . s %r(%r)=$e(data,offset+5,offset+5+(%r(%r,0)-1))
  . s offset=offset+5+%r(%r,0)
  . q
- s rc=$$dbxcmnd(.%r,.%oref,$a(cmnd),.res)
+ s rc=$$dbxcmnd(.%r,.%oref,cmnd,.res)
  i rc=0 s sort=1 ; data
  i rc=-1 s sort=11 ; error
  s type=1 ; string
@@ -841,30 +849,32 @@ dbxe ; Error
  s ze=$$error()
  q -1
  ;
-dbxnet(buf) ; new wire protocol for access to M
- n %zcs,%oref,argc,cmnd,i,offset,ok,oref,pcmnd,port,pport,req,res,slen,sn,sort,type,uci,var,x
+dbxnet(%zcs,buf) ; new wire protocol for access to M
+ n %oref,argc,cmnd,i,offset,ok,oref,pcmnd,port,pport,req,res,slen,sn,sort,type,uci,var,x,error
  s uci=$p(buf,"~",2)
  i uci'="" d uci(uci)
  s res=$zv
  s res=$$esize256($l(res))_"0"_res
- w res d flush
+ d writem(.%zcs,res,1)
  ;d event("$j="_$j_" *** Initialise ***")
 dbxnet1 ; request loop
- r head#5
- s len=$$dsize256(head)
- s len=len-5
- s cmnd=$e(head,5)
+ s error="",data=""
+ i $d(%zcs("pwnd")) s len=$$getmsl() d &pwind.tcpreadmessage(.data,.len,.cmnd,0,.error) g dbxnet2
+ r head#5 s len=$$dsize256(head)-5,cmnd=$a($e(head,5))
+ i len>$$getmsl() s error="DB Server string size exceeded ("_$$getmsl()_")"
+ i len>0 r data#len
+dbxnet2 ; request data received
  ;d event("$j="_$j_"; len="_len_"; cmnd="_$a(cmnd))
- i len<1,$a(cmnd)=90 w $$ping("") d flush g dbxnet1
- i len>$$getmsl() s res="DB Server string size exceeded ("_$$getmsl()_")",sort=11,type=1,res=$$esize256($l(res))_$c((sort*20)+type)_res w res d flush c $io h
+ i error'="" s sort=11,type=1,res=$$esize256($l(res))_$c((sort*20)+type)_res d writem(.%zcs,res,1) d halt(.%zcs)
+ i cmnd=0 g dbxnet1
+ i len<1,cmnd=90 d writem(.%zcs,$$ping(""),1) g dbxnet1
  i len<1 q
- r data#len
- i $a(cmnd)=61 tstart  s res=0,res=$$esize256($l(res))_$c(21)_res w res d flush g dbxnet1
- i $a(cmnd)=62 s res=$tlevel,res=$$esize256($l(res))_$c(21)_res w res d flush g dbxnet1
- i $a(cmnd)=63 tcommit  s res=0,res=$$esize256($l(res))_$c(21)_res w res d flush g dbxnet1
- i $a(cmnd)=64 trollback  s res=0,res=$$esize256($l(res))_$c(21)_res w res d flush g dbxnet1
- s res=$$dbx(0,cmnd,data,len,"")
- w res d flush
+ i $a(cmnd)=61 tstart  s res=0,res=$$esize256($l(res))_$c(21)_res d writem(.%zcs,res,1) g dbxnet1
+ i $a(cmnd)=62 s res=$tlevel,res=$$esize256($l(res))_$c(21)_res d writem(.%zcs,res,1) g dbxnet1
+ i $a(cmnd)=63 tcommit  s res=0,res=$$esize256($l(res))_$c(21)_res d writem(.%zcs,res,1) g dbxnet1
+ i $a(cmnd)=64 trollback  s res=0,res=$$esize256($l(res))_$c(21)_res d writem(.%zcs,res,1) g dbxnet1
+ s res=$$dbx(.%zcs,0,cmnd,data,len,"")
+ d writem(.%zcs,res,1)
  g dbxnet1
  ;
 dbxcmnd(%r,%oref,cmnd,res) ; Execute command
@@ -1062,6 +1072,12 @@ writex(content,len) ; write out response payload
  ;
 w(%stream,content) ; write out response payload
  d write(.%stream,content)
+ q
+ ;
+writem(%zcs,content,flush)
+ n error
+ i $d(%zcs("pwnd")) d &pwind.tcpwrite(content,1,.error) q
+ w content
  q
  ;
 nvpair(%nv,%payload)
