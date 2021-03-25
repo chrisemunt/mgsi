@@ -1,5 +1,5 @@
 Cache for Windows^INT^zmgsi
-%RO on 23 Mar 2021 01:00 AM
+%RO on 25 Mar 2021 01:00 AM
 %zmgsi
 %zmgsi ;(CM) Service Integration - Core Server
  ;
@@ -304,12 +304,13 @@ a0 d vers q
  ; v3.6.15:   6 November  2020 (Add functionality to support load balancing and failover in mg_web)
  ; v4.0.16:  11 February  2021 (Implement native concurrent TCP server for YottaDB; Transaction Processing; Review code base and remove unnecessary/defunct code)
  ; v4.1.17:  23 March     2021 (Improve performance of network of YottaDB; Introduce support for the mg_pwind I/O subsystem)
+ ; v4.1.18:  25 March     2021 (Correct a fault in the $$nvpair() web helper - it wasn't coping with unescaped '=' characters in values)
  ;
 v() ; version and date
  n v,r,d
  s v="4.1"
- s r=17
- s d="23 March 2021"
+ s r=18
+ s d="25 March 2021"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -1515,12 +1516,22 @@ writem(%zcs,content,flush)
  ;
 nvpair(%nv,%payload)
  n i,x,def,name,value,value1
- f i=1:1:$l(%payload,"&") s x=$p(%payload,"&",i),name=$$urld($p(x,"=",1)),value=$$urld($p(x,"=",2)) i name'="" d
+ ; +ydb
+ ; f i=1:1:$l(%payload,"&") s x=$p(%payload,"&",i),name=$$urld($p(x,"=",1)),value=$$urld($p(x,"=",2,999999)) i name'="" d
+ ; . s def=$d(%nv(name))
+ ; . i 'def s %nv(name)=value q
+ ; . i def#10 s value1=$g(%nv(name)) k %nv(name) s %nv(name,1)=value1,%nv(name,2)=value q
+ ; . s %nv(name,$o(%nv(name,""),-1)+1)=value q
+ ; . q
+ ; -ydb
+ ; +not_ydb
+ f i=1:1:$l(%payload,"&") s x=$p(%payload,"&",i),name=$zcvt($p(x,"=",1),"I","URL"),value=$zcvt($p(x,"=",2,*),"I","URL") i name'="" d
  . s def=$d(%nv(name))
  . i 'def s %nv(name)=value q
  . i def#10 s value1=$g(%nv(name)) k %nv(name) s %nv(name,1)=value1,%nv(name,2)=value q
  . s %nv(name,$o(%nv(name,""),-1)+1)=value q
  . q
+ ; -not_ydb
  q 1
  ;
 urld(%val) ; URL decode (unescape)
