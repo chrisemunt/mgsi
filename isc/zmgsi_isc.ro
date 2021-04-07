@@ -1,6 +1,6 @@
 Cache for Windows^INT^zmgsi^~Format=Cache.S~^RAW
-%RO on 25 Mar 2021 01:00 AM
-%zmgsi^INT^1^65828,53531.0^0
+%RO on 07 Apr 2021 01:00 AM
+%zmgsi^INT^1^65841,60189.0^0
 %zmgsi ;(CM) Service Integration - Core Server
  ;
  ;  ----------------------------------------------------------------------------
@@ -28,12 +28,16 @@ Cache for Windows^INT^zmgsi^~Format=Cache.S~^RAW
 a0 d vers^%zmgsis
  q
  ;
+defport() ; Return the default TCP port number for this service.
+ q 7041
+ ;
 start(port) ; start daemon
- n pwnd,v,vn,pport
+ n pwnd,v,vn
  s $zt="starte^%zmgsi" ; new $ztrap set $ztrap="zgoto "_$zlevel_":starte^%zmgsi"
+ i $g(port)="" s port=$$defport()
  s pwnd=0 i port["pw",port[":" s pwnd=1,port=$p(port,":",2)
  s port=+$g(port)
- i 'port s port=7041
+ i 'port s port=$$defport()
  k ^%zmgsi("stop",port)
  ; Concurrent tcp service (Cache, IRIS, M21, MSM, YottaDB)
  i '$$isidb^%zmgsis(),'$$ism21^%zmgsis(),'$$ismsm^%zmgsis(),'$$isydb^%zmgsis() g starte
@@ -58,19 +62,20 @@ eeestart ; start
  q
  ;
 stop(port) ; stop
- n pwnd,job,pport
+ n pwnd,job
  w !,"Terminating the %zmgsi service ... "
+ i $g(port)="" s port=$$defport()
  s pwnd=0 i port["pw",port[":" s pwnd=1,port=$p(port,":",2)
- s pport=+$g(port) i pport="" q
- i 'pport s pport=7041
+ s port=+$g(port)
+ i 'port s port=$$defport()
  s ^%zmgsi("stop",port)=1
- s job=$g(^%zmgsi("server",pport))
+ s job=$g(^%zmgsi("server",port))
  ; +not_ydb
  i $$isidb^%zmgsis(),job'="" d $SYSTEM.Process.Terminate(job) g stopx
  ; -not_ydb
  d killproc(job)
 stopx ; service should have terminated
- k ^%zmgsi("server",pport)
+ k ^%zmgsi("server",port)
  w !!,"%zmgsi service terminated",!
  q
  ;
@@ -251,7 +256,7 @@ ylink ; link all routines
  q
  ;
 
-%zmgsis^INT^1^65828,53531.0^0
+%zmgsis^INT^1^65841,60189.0^0
 %zmgsis ;(CM) Service Integration - Child Process
  ;
  ;  ----------------------------------------------------------------------------
@@ -305,12 +310,13 @@ a0 d vers q
  ; v4.0.16:  11 February  2021 (Implement native concurrent TCP server for YottaDB; Transaction Processing; Review code base and remove unnecessary/defunct code)
  ; v4.1.17:  23 March     2021 (Improve performance of network of YottaDB; Introduce support for the mg_pwind I/O subsystem)
  ; v4.1.18:  25 March     2021 (Correct a fault in the $$nvpair() web helper - it wasn't coping with unescaped '=' characters in values)
+ ; v4.2.19:   5 April     2021 (Introduce improved support for InterSystems Objects for the standard (PHP/Python/Ruby) connectivity protocol)
  ;
 v() ; version and date
  n v,r,d
- s v="4.1"
- s r=18
- s d="25 March 2021"
+ s v="4.2"
+ s r=19
+ s d="5 April 2021"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -564,7 +570,7 @@ inetde ; error
  q
  ;
 ifc(ctx,request,param) ; entry point from fixed binding
- n %zcs,argc,sn,type,var,req,cmnd,pcmnd,buf,byref,hlen,clen,rlen,result
+ n %zcs,argc,sn,type,var,req,res,cmnd,pcmnd,mcmnd,buf,byref,hlen,clen,rlen,oref,result
  s $zt="ifce^%zmgsis" ; new $ztrap set $ztrap="zgoto "_$zlevel_":ifce^%zmgsis"
  i param["$zv" q $zv
  i param["dbx" q $$dbx(.%zcs,ctx,$a($e(request,5)),$e(request,6,9999),$$dsize256(request),param)
@@ -584,14 +590,17 @@ ifc(ctx,request,param) ; entry point from fixed binding
  ;d event("request cmnd="_cmnd_"; size="_clen_" ("_$e(buf,hlen-(5-1),hlen)_"); client="_%zcs("client")_" ;header = "_buf)
  s rlen=0
  i clen d req(.%zcs,.req,.argc,clen,.rlen,buf,.cmnd,.pcmnd,.var)
- s req=$g(@req(1)) i req="" q ""
- s cmnd=$p(req,"^",2)
+ s req=$g(@req(1)),res="" i req="" q ""
+ s cmnd=$p(req,"^",2),mcmnd=$p(req,"^",4)
  k %zcs("buffer") s %zcs("buffer")="" s %zcs("buffer",1)="00000cv"_$c(10)
  i cmnd="A" d ayt(.%zcs,.req)
  i cmnd="S" d dint(.%zcs,.req)
- i cmnd="P" d mcom(.%zcs,.req,argc)
+ i cmnd="P" s res=$$mcom(.%zcs,.req,argc,mcmnd,.%oref)
  i cmnd="H" d info(.%zcs,.req)
  i cmnd="X" d halt(.%zcs)
+ ; +not_ydb
+ i cmnd="P",$IsObject(res) s oref=res,res=$i(%oref),%oref(res)=oref,%zcs("buffer",1)=$e(%zcs("buffer",1),1,5)_"co"_$c(10)_res
+ ; -not_ydb
  d end(.%zcs) s result=$g(%zcs("buffer"))
  d delavars(.%zcs)
  q result
@@ -599,7 +608,7 @@ ifce ; error
  q "00000ce"_$c(10)_"m server error : ["_$g(req(2))_"]"_$tr($$error(),"<>%","[]^")
  ;
 child(pport,port) ; child
- n %zcs,x,argc,sn,type,var,req,cmnd,pcmnd,mcmnd,buf,byref,hlen,clen,rlen,error
+ n %zcs,%oref,x,argc,sn,type,var,req,res,oref,cmnd,pcmnd,mcmnd,buf,byref,hlen,clen,rlen,error
  s $zt="childe^%zmgsis" ; new $ztrap set $ztrap="zgoto "_$zlevel_":childe^%zmgsis"
  ; +ydb
  ; i pport["|" s %zcs("pwnd")=pport,pport=$p(pport,"|",2)
@@ -685,9 +694,12 @@ child4 ; request header received
  ; -ydb
  i cmnd="A" d ayt(.%zcs,.req)
  i cmnd="S" d dint(.%zcs,.req)
- i cmnd="P" d mcom(.%zcs,.req,argc)
+ i cmnd="P" s res=$$mcom(.%zcs,.req,argc,mcmnd,.%oref)
  i cmnd="H" d info(.%zcs,.req)
  i cmnd="X" d halt(.%zcs)
+ ; +not_ydb
+ i cmnd="P",$IsObject(res) s oref=res,res=$i(%oref),%oref(res)=oref,%zcs("buffer",1)=$e(%zcs("buffer",1),1,5)_"co"_$c(10)_res
+ ; -not_ydb
  d end(.%zcs)
  g child2
  ;
@@ -735,7 +747,7 @@ req2(%zcs,req,argc,type,byref,buf,cmnd,pcmnd,var) ; initialize next argument
  . s uci=$p(sysp,"#",2) i uci'="" d
  . . s ucic=$$getuci()
  . . i ucic'="",uci=ucic q
- . . d uci(uci) d event("correct namespace from '"_ucic_"' to '"_uci_"'")
+ . . d uci(uci)
  . . q
  . s offset=$p(sysp,"#",3)+0
  . s %zcs("global")=$p(sysp,"#",7)+0
@@ -916,23 +928,22 @@ info(%zcs,req) ; connection information
  d send(.%zcs,"</body></html>")
  q
  ;
-mcom(%zcs,req,argc) ; execute M command
- n argz,cmnd,ref,var,varn,com,i,res
+mcom(%zcs,req,argc,cmnd,%oref) ; execute M command
+ n argz,ref,var,varn,com,i,res
  s $zt="mcome^%zmgsis" ; new $ztrap set $ztrap="zgoto "_$zlevel_":mcome^%zmgsis"
- s cmnd=$p(req,"^",4)
- s %zcs("buffer")=""
- i cmnd="S",argc>2 s ref=$$ref(.req,argc,argc-1,0) x "s "_ref_"="_%zcs("avar")_argc d res(.%zcs,.req,argc,"") q
- i cmnd="G",argc>1 s ref=$$ref(.req,argc,argc,0) x "s res=$g("_ref_")" d res(.%zcs,.req,argc,res) q
- i cmnd="K",argc>0 s ref=$$ref(.req,argc,argc,0) x "k "_ref d res(.%zcs,.req,argc,"") q
- i cmnd="D",argc>1 s ref=$$ref(.req,argc,argc,0) x "s res=$d("_ref_")" d res(.%zcs,.req,argc,res) q
- i cmnd="O",argc>1 s ref=$$ref(.req,argc,argc,0) x "s res=$o("_ref_")" d res(.%zcs,.req,argc,res) q
- i cmnd="P",argc>1 s ref=$$ref(.req,argc,argc,0) x "s res=$o("_ref_",-1)" d res(.%zcs,.req,argc,res) q
- i cmnd="I",argc>2 s ref=$$ref(.req,argc,argc-1,0) x "s res=$i("_ref_","_%zcs("avar")_argc_")" d res(.%zcs,.req,argc,res) q
- i cmnd="a" tstart  s res=0 d res(.%zcs,.req,argc,res) q
- i cmnd="b" s res=$tlevel d res(.%zcs,.req,argc,res) q
- i cmnd="c" tcommit  s res=0 d res(.%zcs,.req,argc,res) q
- i cmnd="d" trollback  s res=0 d res(.%zcs,.req,argc,res) q
- i cmnd="M",argc>2 d  d res(.%zcs,.req,argc,"") q  ; global merge from client to database
+ s %zcs("buffer")="",res=""
+ i cmnd="S",argc>2 s ref=$$ref(.req,argc,argc-1,0) x "s "_ref_"="_%zcs("avar")_argc d res(.%zcs,.req,argc,"") q res
+ i cmnd="G",argc>1 s ref=$$ref(.req,argc,argc,0) x "s res=$g("_ref_")" d res(.%zcs,.req,argc,res) q res
+ i cmnd="K",argc>0 s ref=$$ref(.req,argc,argc,0) x "k "_ref d res(.%zcs,.req,argc,"") q res
+ i cmnd="D",argc>1 s ref=$$ref(.req,argc,argc,0) x "s res=$d("_ref_")" d res(.%zcs,.req,argc,res) q res
+ i cmnd="O",argc>1 s ref=$$ref(.req,argc,argc,0) x "s res=$o("_ref_")" d res(.%zcs,.req,argc,res) q res
+ i cmnd="P",argc>1 s ref=$$ref(.req,argc,argc,0) x "s res=$o("_ref_",-1)" d res(.%zcs,.req,argc,res) q res
+ i cmnd="I",argc>2 s ref=$$ref(.req,argc,argc-1,0) x "s res=$i("_ref_","_%zcs("avar")_argc_")" d res(.%zcs,.req,argc,res) q res
+ i cmnd="a" tstart  s res=0 d res(.%zcs,.req,argc,res) q res
+ i cmnd="b" s res=$tlevel d res(.%zcs,.req,argc,res) q res
+ i cmnd="c" tcommit  s res=0 d res(.%zcs,.req,argc,res) q res
+ i cmnd="d" trollback  s res=0 d res(.%zcs,.req,argc,res) q res
+ i cmnd="M",argc>2 d  d res(.%zcs,.req,argc,"") q res ; global merge from client to database
  . s var="" f argz=1:1 q:'$d(req(argz))  i $g(req(argz,0))=1 s var=req(argz) q
  . i var="" q
  . s argz=argz-1
@@ -941,7 +952,7 @@ mcom(%zcs,req,argc) ; execute M command
  . i $g(@req(argz+2))["ks" x "k "_ref
  . x "m "_ref_"="_var
  . q
- i cmnd="m",argc>2 d  d res(.%zcs,.req,argc,"") q  ; global merge from database to client
+ i cmnd="m",argc>2 d  d res(.%zcs,.req,argc,"") q res ; global merge from database to client
  . s var="" f argz=1:1 q:'$d(req(argz))  i $g(req(argz,0))=1 s var=req(argz) q
  . i var="" q
  . s argz=argz-1
@@ -949,39 +960,60 @@ mcom(%zcs,req,argc) ; execute M command
  . i ref["()" s ref=$p(ref,"()",1)
  . x "m "_var_"="_ref
  . q
- i cmnd="H" d  q  ; stream HTML content to client using M function
+ i cmnd="H" d  q res ; stream HTML content to client using M function
  . i '$d(%zcs("ifc")) s %zcs("buffer",1)=$c(1,2,1,10)_"0sc"_$c(10) d writem(.%zcs,%zcs("buffer",1),0)
  . i argc<2 q
  . s (varn,com)="" f i=1:1:argc s varn=varn_com_%zcs("avar")_i,com="," 
  . s ref=$$ref(.req,argc,argc,0)
  . x "n ("_varn_") d "_ref
  . q
- i cmnd="y" d  q  ; stream HTML content to client using ISC ClassMethod
+ i cmnd="y" d  q res ; stream HTML content to client using ISC ClassMethod
  . i '$d(%zcs("ifc")) s %zcs("buffer",1)=$c(1,2,1,10)_"0sc"_$c(10) d writem(.%zcs,%zcs("buffer",1),0)
  . i argc<1 q
  . s varn="res" f i=1:1:argc s varn=varn_","_%zcs("avar")_i 
- . s ref=$$oref(req,argc,0)
+ . s ref=$$oref(.req,argc,0)
  . i argc=1 x "n ("_varn_") s res=$ClassMethod()"
  . i argc>1 x "n ("_varn_") s res=$ClassMethod("_ref_")"
  . q
- i cmnd="X",argc>1 d  d res(.%zcs,.req,argc,res) q  ; invocation of M extrinsic function
+ i cmnd="X",argc>1 d  d res(.%zcs,.req,argc,res) q res ; invocation of M extrinsic function
  . s varn="res" f i=1:1:argc s varn=varn_","_%zcs("avar")_i 
  . s ref=$$ref(.req,argc,argc,1)
  . i argc=2 x "n ("_varn_") s res=$$"_ref_"()"
  . i argc>2 x "n ("_varn_") s res=$$"_ref
  . q
- i cmnd="x",argc>0 d  d res(.%zcs,.req,argc,res) q  ; invocation of ISC ClassMethod
+ i cmnd="x",argc>0 d  d res(.%zcs,.req,argc,res) q res ; invocation of ISC ClassMethod
  . s varn="res" f i=1:1:argc s varn=varn_","_%zcs("avar")_i 
- . s ref=$$oref(req,argc,0)
+ . s ref=$$oref(.req,argc,0)
  . i argc=1 x "n ("_varn_") s res=$ClassMethod()"
  . i argc>1 x "n ("_varn_") s res=$ClassMethod("_ref_")"
  . q
- q
+ i cmnd="h",argc>0 d  d res(.%zcs,.req,argc,res) q res ; invocation of ISC ClassMethod
+ . s varn="res" f i=1:1:argc s varn=varn_","_%zcs("avar")_i
+ . s ref=$$oref(.req,argc,0)
+ . i argc<3 q
+ . s @req(2)=%oref(@req(2))
+ . x "n ("_varn_") s res=$Property("_ref_")"
+ . q
+ i cmnd="i",argc>0 d  d res(.%zcs,.req,argc,res) q res ; invocation of ISC ClassMethod
+ . s varn="res" f i=1:1:argc s varn=varn_","_%zcs("avar")_i
+ . s ref=$$oref(.req,argc-1,0)
+ . i argc<4 q
+ . s @req(2)=%oref(@req(2))
+ . x "n ("_varn_") s $Property("_ref_")="_req(argc)
+ . q
+ i cmnd="j",argc>0 d  d res(.%zcs,.req,argc,res) q res ; invocation of ISC ClassMethod
+ . s varn="res" f i=1:1:argc s varn=varn_","_%zcs("avar")_i
+ . s ref=$$oref(.req,argc,0)
+ . i argc<3 q
+ . s @req(2)=%oref(@req(2))
+ . x "n ("_varn_") s res=$Method("_ref_")"
+ . q
+ q res
 mcome ; error
  d event($$client(.%zcs)_" error : "_$$error())
  k %zcs("buffer") s %zcs("buffer")="",%zcs("buffer",2)="m server error : ["_$g(%zcs("buffer",2))_"]"_$tr($$error(),"<>%","[]^")_$g(ref)
  s %zcs("buffer",1)="00000ce"_$c(10)
- q
+ q res
  ;
 client(%zcs) ; get client name
  s name="mg_client"
@@ -1009,7 +1041,7 @@ oref(req,argc,fun) ; object reference
  s strt=2 i var?1"^"."^" s strt=strt+1
  i '$d(req(strt)) q ""
  s ref=""
- s com="" f i=strt:1:argz s ref=ref_com_$s(fun&((i-strt)>1):".",1:"")_req(i),com=","
+ s com="" f i=strt:1:argc s ref=ref_com_$s(fun&((i-strt)>1):".",1:"")_req(i),com=","
  q ref
  ;
 res(%zcs,req,argz,res) ; return result
