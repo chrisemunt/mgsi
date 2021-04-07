@@ -6,7 +6,7 @@ Chris Munt <cmunt@mgateway.com>
 5 April 2021, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
 * Current Release: Version: 3.1; Revision 102a (21 December 2020).
-* SuperServer (%zmgsi routines) Release: Version: 4.2; Revision 18 (5 April 2021).
+* SuperServer (%zmgsi routines) Release: Version: 4.2; Revision 19 (5 April 2021).
 * [Release Notes](#RelNotes) can be found at the end of this document.
 
 Contents
