@@ -3,10 +3,10 @@
 M/Gateway Service Integration Gateway (**SIG**) for InterSystems **Cache/IRIS** and **YottaDB**.
 
 Chris Munt <cmunt@mgateway.com>  
-25 March 2021, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
+5 April 2021, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
 * Current Release: Version: 3.1; Revision 102a (21 December 2020).
-* SuperServer (%zmgsi routines) Release: Version: 4.1; Revision 18 (25 March 2021).
+* SuperServer (%zmgsi routines) Release: Version: 4.2; Revision 18 (5 April 2021).
 * [Release Notes](#RelNotes) can be found at the end of this document.
 
 Contents
@@ -286,4 +286,8 @@ Unless required by applicable law or agreed to in writing, software distributed 
 ### v3.1.102a; Superserver v4.1.18 (25 March 2021)
 
 * Correct a fault in the $$nvpair^%zmgsis() web helper function. It wasn't coping with unescaped '=' characters in values.
+
+### v3.1.102a; Superserver v4.2.19 (5 April 2021)
+
+* Introduce improved support for InterSystems Objects for the standard (PHP/Python/Ruby) connectivity protocol.
 
