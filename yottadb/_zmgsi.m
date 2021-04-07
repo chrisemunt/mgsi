@@ -25,12 +25,16 @@
 a0 d vers^%zmgsis
  q
  ;
+defport() ; Return the default TCP port number for this service.
+ q 7041
+ ;
 start(port) ; start daemon
- n pwnd,v,vn,pport
+ n pwnd,v,vn
  new $ztrap set $ztrap="zgoto "_$zlevel_":starte^%zmgsi"
+ i $g(port)="" s port=$$defport()
  s pwnd=0 i port["pw",port[":" s pwnd=1,port=$p(port,":",2)
  s port=+$g(port)
- i 'port s port=7041
+ i 'port s port=$$defport()
  k ^%zmgsi("stop",port)
  ; Concurrent tcp service (Cache, IRIS, M21, MSM, YottaDB)
  i '$$isidb^%zmgsis(),'$$ism21^%zmgsis(),'$$ismsm^%zmgsis(),'$$isydb^%zmgsis() g starte
@@ -50,16 +54,17 @@ eeestart ; start
  q
  ;
 stop(port) ; stop
- n pwnd,job,pport
+ n pwnd,job
  w !,"Terminating the %zmgsi service ... "
+ i $g(port)="" s port=$$defport()
  s pwnd=0 i port["pw",port[":" s pwnd=1,port=$p(port,":",2)
- s pport=+$g(port) i pport="" q
- i 'pport s pport=7041
+ s port=+$g(port)
+ i 'port s port=$$defport()
  s ^%zmgsi("stop",port)=1
- s job=$g(^%zmgsi("server",pport))
+ s job=$g(^%zmgsi("server",port))
  d killproc(job)
 stopx ; service should have terminated
- k ^%zmgsi("server",pport)
+ k ^%zmgsi("server",port)
  w !!,"%zmgsi service terminated",!
  q
  ;
