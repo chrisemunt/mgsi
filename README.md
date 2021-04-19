@@ -3,10 +3,10 @@
 M/Gateway Service Integration Gateway (**SIG**) for InterSystems **Cache/IRIS** and **YottaDB**.
 
 Chris Munt <cmunt@mgateway.com>  
-5 April 2021, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
+20 April 2021, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
 * Current Release: Version: 3.1; Revision 102a (21 December 2020).
-* SuperServer (%zmgsi routines) Release: Version: 4.2; Revision 19 (5 April 2021).
+* SuperServer (%zmgsi routines) Release: Version: 4.2; Revision 20 (20 April 2021).
 * [Release Notes](#RelNotes) can be found at the end of this document.
 
 Contents
@@ -54,7 +54,7 @@ Change to your development Namespace and check the installation:
        do ^%zmgsi
 
        M/Gateway Developments Ltd - Service Integration Gateway
-       Version: 4.1; Revision 17 (23 March 2021)
+       Version: 4.2; Revision 20 (20 April 2021)
 
 ### YottaDB
 
@@ -82,7 +82,7 @@ Link all the **zmgsi** routines and check the installation:
        do ^%zmgsi
 
        M/Gateway Developments Ltd - Service Integration Gateway
-       Version: 4.1; Revision 17 (23 March 2021)
+       Version: 4.2; Revision 20 (20 April 2021)
 
 
 Note that the version of **zmgsi** is successfully displayed.
@@ -291,3 +291,6 @@ Unless required by applicable law or agreed to in writing, software distributed 
 
 * Introduce improved support for InterSystems Objects for the standard (PHP/Python/Ruby) connectivity protocol.
 
+### v3.1.102a; Superserver v4.2.20 (20 April 2021)
+
+* Add functionality to parse multipart MIME content for **mg\_web**.
