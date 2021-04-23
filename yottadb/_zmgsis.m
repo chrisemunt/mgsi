@@ -53,12 +53,13 @@ a0 d vers q
  ; v4.1.18:  25 March     2021 (Correct a fault in the $$nvpair() web helper - it wasn't coping with unescaped '=' characters in values)
  ; v4.2.19:   5 April     2021 (Introduce improved support for InterSystems Objects for the standard (PHP/Python/Ruby) connectivity protocol)
  ; v4.2.20:  20 April     2021 (Add functionality to parse multipart MIME content for mg_web)
+ ; v4.2.21:  23 April     2021 (Related to v4.2.20: move multipart section headers into a separate array)
  ;
 v() ; version and date
  n v,r,d
  s v="4.2"
- s r=20
- s d="20 April 2021"
+ s r=21
+ s d="23 April 2021"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -1117,10 +1118,10 @@ writem(%zcs,content,flush)
  w content
  q
  ;
-content(%nv,%payload,%cgi) ; generic function for parsing request payload
+content(%nv,%nvhead,%payload,%cgi) ; generic function for parsing request payload
  n ct,boundary
  s ct=$g(%cgi("CONTENT_TYPE")) i ct="" q 1
- i ct["boundary=" s boundary=$p(ct,"boundary=",2,999) s:$e(boundary)="""" @("boundary="_boundary) q $$multipart(.%nv,%payload,boundary)
+ i ct["boundary=" s boundary=$p(ct,"boundary=",2,999) s:$e(boundary)="""" @("boundary="_boundary) q $$multipart(.%nv,.%nvhead,%payload,boundary)
  i ct["form-urlencoded" q $$nvpair(.%nv,%payload)
  q 1
  ;
@@ -1134,8 +1135,8 @@ nvpair(%nv,%payload) ; parse content type: application/x-www-form-urlencoded
  . q
  q 1
  ;
-multipart(%content,%payload,%boundary) ; parse content type: multipart/form-data
- n blen,sn1,sn2,snh,snc,snx,sn,n,headers,header,hname,harray,hvalue,sname,def,temp
+multipart(%content,%nvhead,%payload,%boundary) ; parse content type: multipart/form-data
+ n blen,sn1,sn2,snh,snc,snx,sn,n,headers,header,hname,harray,hvalue,sname,def,temp,temphead
  s blen=$l(boundary) i blen="" q 1
  s sn1=$f(%payload,%boundary,1),sn=0
  f  s sn2=$f(%payload,%boundary,sn1) q:'sn2  d  s sn1=sn2
@@ -1146,7 +1147,7 @@ multipart(%content,%payload,%boundary) ; parse content type: multipart/form-data
  . ; move end point to point before 'crlf' sequence introducing the boundary 
  . i $e(%payload,snx-1,snx)=$c(13,10) s snx=snx-2
  . s snc=sn1+2 ; move start point to after the trailing 'crlf' sequence after the previous boundary
- . k harray,temp
+ . k harray,temp,temphead
  . s headers="",sname="",snh=$f(%payload,$c(13,10,13,10),snc) i snh,snh'>(snx+1) s headers=$e(%payload,snc,snh-5),snc=snh
  . ; process the headers for the section
  . f n=1:1 s header=$p(headers,$c(13,10),n) q:header=""  d
@@ -1158,9 +1159,9 @@ multipart(%content,%payload,%boundary) ; parse content type: multipart/form-data
  . i sname="" s sn=sn+1,sname="content"_sn
  . s content=$e(%payload,snc,snx)
  . s def=$d(%content(sname))
- . i 'def m %content(sname,"head")=harray s %content(sname)=content q
- . i def#10 m temp=%content(sname) k %content(sname) m %content(sname,1)=temp,%content(sname,2,"head")=harray s %content(sname,2)=content q
- . s n=$o(%content(sname,""),-1)+1 m %content(sname,n,"head")=harray s %content(sname,n)=content q
+ . i 'def m %nvhead(sname)=harray s %content(sname)=content q
+ . i def#10 m temp=%content(sname),temphead=%nvhead(sname) k %content(sname),%nvhead(sname) m %content(sname,1)=temp,%nvhead(sname,1)=temphead,%nvhead(sname,2)=harray s %content(sname,2)=content q
+ . s n=$o(%content(sname,""),-1)+1 m %nvhead(sname,n)=harray s %content(sname,n)=content q
  . q
  q 1
  ;
