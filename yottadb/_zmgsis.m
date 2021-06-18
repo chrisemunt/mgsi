@@ -54,12 +54,13 @@ a0 d vers q
  ; v4.2.19:   5 April     2021 (Introduce improved support for InterSystems Objects for the standard (PHP/Python/Ruby) connectivity protocol)
  ; v4.2.20:  20 April     2021 (Add functionality to parse multipart MIME content for mg_web)
  ; v4.2.21:  23 April     2021 (Related to v4.2.20: move multipart section headers into a separate array)
+ ; v4.3.22:  18 June      2021 (Create the infrastructure to allow mg_web to handle request payloads that exceed the maximum string length of the target DB Server)
  ;
 v() ; version and date
  n v,r,d
- s v="4.2"
- s r=21
- s d="23 April 2021"
+ s v="4.3"
+ s r=22
+ s d="18 June 2021"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -312,7 +313,8 @@ ifc(ctx,request,param) ; entry point from fixed binding
  n %zcs,argc,sn,type,var,req,res,cmnd,pcmnd,mcmnd,buf,byref,hlen,clen,rlen,oref,result
  new $ztrap set $ztrap="zgoto "_$zlevel_":ifce^%zmgsis"
  i param["$zv" q $zv
- i param["dbx" q $$dbx(.%zcs,ctx,$a($e(request,5)),$e(request,6,9999),$$dsize256(request),param)
+ i param["dbx" q $$dbx(.%zcs,ctx,$a($e(request,5)),$e(request,6,$$getmsl()),$$dsize256(request),param)
+ i param["websn" q $$dbxwebsn(ctx,$p(param,":",2),request,$p(param,":",3))
  d vars(.%zcs)
  s %zcs("ifc")=1
  s argc=1
@@ -873,9 +875,11 @@ dbx(%zcs,ctx,cmnd,data,len,param) ; entry point from fixed binding
  k %r s offset=11 f %r=1:1 s %r(%r,0)=$$dsize256($e(data,offset,offset+3)) d  i '$d(%r(%r)) s %r=%r-1 q
  . s %r(%r,1)=$a(data,offset+4)\20,%r(%r,2)=$a(data,offset+4)#20 i %r(%r,1)=9 k %r(%r) q
  . i %r(%r,1)=-1 k %r(%r) q
+ . ;;i %r>10 k %r(%r) q  ; cmcm hack
  . s %r(%r)=$e(data,offset+5,offset+5+(%r(%r,0)-1))
  . s offset=offset+5+%r(%r,0)
  . q
+ s %r(-1,"param")=param
  s rc=$$dbxcmnd(.%r,.%oref,cmnd,.res)
  i rc=0 s sort=1 ; data
  i rc=-1 s sort=11 ; error
@@ -1021,12 +1025,17 @@ dbxweb(ctx,data,param) ; mg_web function invocation
  . q
  s %sys("no")=$$dsize256($g(%sys("no")))
  s no=$g(%sys("no"))+0
+ i $g(%sys("key"))=$c(0,0,0,0,0,0,0,0,0,0) s %sys("key")=""
+ i $g(%sys("key"))'="" s res=$$dbxweblr(.%cgi,.%var,.%sys) i res'="" g dbxwebe1
  s %sys("server")=$p($g(%sys("server")),$c(0),1)
  s %sys("server_no")=+$g(%sys("server_no"))
  i $g(%sys("wsfunction"))'="" q $$mgwebsock(.%cgi,.%var,.%sys)
  i $g(%sys("function"))="" q $$esize256(no)_$c(0)_$$mgweb(.%cgi,.%var,.%sys)
  s uci=$$getuci()
+ i $g(%sys("key"))'="" s res=$$dbxweb1(.%cgi,.%mgweb,.%sys) g dbxweb2
  s res=$$dbxweb1(.%cgi,.%var,.%sys)
+dbxweb2 ; request serviced
+ k %mgweb
  i '$g(%sys("stream")) q $$esize256(no)_$c(0)_res
  s len=$l(res) i len d
  . i $g(%sys("stream"))=1 d writex(res,len) q
@@ -1036,7 +1045,10 @@ dbxweb(ctx,data,param) ; mg_web function invocation
  q $c(255,255,255,255)
 dbxwebe ; Error
  s res=$$error()
+dbxwebe1 ; Error - non M
  d event(res)
+ ; with API mode we must not halt the process
+ i $g(%sys("mode"))="api" q $$esize256($g(no)+0)_$c(0)_res
  i '$g(%sys("stream")) q $$esize256($g(no)+0)_$c(0)_res
  ; with streamed output we must halt and close connection
  i $g(%sys("stream"))=1 d writex(res,$l(res))
@@ -1047,6 +1059,31 @@ dbxwebe ; Error
 dbxweb1(%cgi,%var,%sys)
  n (%cgi,%var,%sys)
  q @("$$"_%sys("function")_"(.%cgi,.%var,.%sys)")
+ ;
+dbxweblr(%cgi,%var,%sys) ; read long request payload
+ n head,len,type,data,key,cn,rc
+ new $ztrap set $ztrap="zgoto "_$zlevel_":dbxweblre^%zmgsis"
+ s key=$$dsize256($e(%sys("key"),1,4))_":"_$$dsize256($e(%sys("key"),5,8))
+ s %sys("key")=key
+ ; with API mode the content would have been pre-loaded into a global so nothing more to do here
+ i $g(%sys("mode"))="api" q ""
+ s cn=0
+ f  d  i len=0 q
+ . r head#5
+ . s len=$$dsize256(head),cmnd=$a($e(head,5))
+ . s sort=$a(head,5)\20,type=$a(head,5)#20
+ . i sort=9 s len=0 q
+ . i len>0 r data#len s cn=cn+1,rc=$$dbxwebsn(key,cn,data,0)
+ . q
+ q ""
+dbxweblre
+ q $$error()
+ ;
+dbxwebsn(key,cn,data,option) ; set a chunk of request data
+ i key=""!(cn="") q 0
+ i 'option k:cn=1 %mgweb s %mgweb(cn)=data q 0
+ k:cn=1 ^mgweb(key) s ^mgweb(key,cn)=data
+ q 0
  ;
 mgweb(%cgi,%var,%sys)
  n %r,offset,ok,x,sort,type,item,ctx,fun,len,name,value,request,data,param,no,header,content
