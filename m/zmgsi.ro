@@ -1,5 +1,5 @@
 Cache for Windows^INT^zmgsi
-%RO on 23 Apr 2021 01:00 AM
+%RO on 17 Jun 2021 01:00 AM
 %zmgsi
 %zmgsi ;(CM) Service Integration - Core Server
  ;
@@ -313,12 +313,13 @@ a0 d vers q
  ; v4.2.19:   5 April     2021 (Introduce improved support for InterSystems Objects for the standard (PHP/Python/Ruby) connectivity protocol)
  ; v4.2.20:  20 April     2021 (Add functionality to parse multipart MIME content for mg_web)
  ; v4.2.21:  23 April     2021 (Related to v4.2.20: move multipart section headers into a separate array)
+ ; v4.3.22:  18 June      2021 (Create the infrastructure to allow mg_web to handle request payloads that exceed the maximum string length of the target DB Server)
  ;
 v() ; version and date
  n v,r,d
- s v="4.2"
- s r=21
- s d="23 April 2021"
+ s v="4.3"
+ s r=22
+ s d="18 June 2021"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -589,7 +590,8 @@ ifc(ctx,request,param) ; entry point from fixed binding
  n %zcs,argc,sn,type,var,req,res,cmnd,pcmnd,mcmnd,buf,byref,hlen,clen,rlen,oref,result
  s $zt="ifce^%zmgsis" ; new $ztrap set $ztrap="zgoto "_$zlevel_":ifce^%zmgsis"
  i param["$zv" q $zv
- i param["dbx" q $$dbx(.%zcs,ctx,$a($e(request,5)),$e(request,6,9999),$$dsize256(request),param)
+ i param["dbx" q $$dbx(.%zcs,ctx,$a($e(request,5)),$e(request,6,$$getmsl()),$$dsize256(request),param)
+ i param["websn" q $$dbxwebsn(ctx,$p(param,":",2),request,$p(param,":",3))
  d vars(.%zcs)
  s %zcs("ifc")=1
  s argc=1
@@ -1273,9 +1275,11 @@ dbx(%zcs,ctx,cmnd,data,len,param) ; entry point from fixed binding
  k %r s offset=11 f %r=1:1 s %r(%r,0)=$$dsize256($e(data,offset,offset+3)) d  i '$d(%r(%r)) s %r=%r-1 q
  . s %r(%r,1)=$a(data,offset+4)\20,%r(%r,2)=$a(data,offset+4)#20 i %r(%r,1)=9 k %r(%r) q
  . i %r(%r,1)=-1 k %r(%r) q
+ . ;;i %r>10 k %r(%r) q  ; cmcm hack
  . s %r(%r)=$e(data,offset+5,offset+5+(%r(%r,0)-1))
  . s offset=offset+5+%r(%r,0)
  . q
+ s %r(-1,"param")=param
  s rc=$$dbxcmnd(.%r,.%oref,cmnd,.res)
  i rc=0 s sort=1 ; data
  i rc=-1 s sort=11 ; error
@@ -1444,12 +1448,17 @@ dbxweb(ctx,data,param) ; mg_web function invocation
  . q
  s %sys("no")=$$dsize256($g(%sys("no")))
  s no=$g(%sys("no"))+0
+ i $g(%sys("key"))=$c(0,0,0,0,0,0,0,0,0,0) s %sys("key")=""
+ i $g(%sys("key"))'="" s res=$$dbxweblr(.%cgi,.%var,.%sys) i res'="" g dbxwebe1
  s %sys("server")=$p($g(%sys("server")),$c(0),1)
  s %sys("server_no")=+$g(%sys("server_no"))
  i $g(%sys("wsfunction"))'="" q $$mgwebsock(.%cgi,.%var,.%sys)
  i $g(%sys("function"))="" q $$esize256(no)_$c(0)_$$mgweb(.%cgi,.%var,.%sys)
  s uci=$$getuci()
+ i $g(%sys("key"))'="" s res=$$dbxweb1(.%cgi,.%mgweb,.%sys) g dbxweb2
  s res=$$dbxweb1(.%cgi,.%var,.%sys)
+dbxweb2 ; request serviced
+ k %mgweb
  ; +not_ydb
  d uci(uci)
  ; -not_ydb
@@ -1462,7 +1471,10 @@ dbxweb(ctx,data,param) ; mg_web function invocation
  q $c(255,255,255,255)
 dbxwebe ; Error
  s res=$$error()
+dbxwebe1 ; Error - non M
  d event(res)
+ ; with API mode we must not halt the process
+ i $g(%sys("mode"))="api" q $$esize256($g(no)+0)_$c(0)_res
  i '$g(%sys("stream")) q $$esize256($g(no)+0)_$c(0)_res
  ; with streamed output we must halt and close connection
  i $g(%sys("stream"))=1 d writex(res,$l(res))
@@ -1473,6 +1485,31 @@ dbxwebe ; Error
 dbxweb1(%cgi,%var,%sys)
  n (%cgi,%var,%sys)
  q @("$$"_%sys("function")_"(.%cgi,.%var,.%sys)")
+ ;
+dbxweblr(%cgi,%var,%sys) ; read long request payload
+ n head,len,type,data,key,cn,rc
+ s $zt="dbxweblre^%zmgsis" ; new $ztrap set $ztrap="zgoto "_$zlevel_":dbxweblre^%zmgsis"
+ s key=$$dsize256($e(%sys("key"),1,4))_":"_$$dsize256($e(%sys("key"),5,8))
+ s %sys("key")=key
+ ; with API mode the content would have been pre-loaded into a global so nothing more to do here
+ i $g(%sys("mode"))="api" q ""
+ s cn=0
+ f  d  i len=0 q
+ . r head#5
+ . s len=$$dsize256(head),cmnd=$a($e(head,5))
+ . s sort=$a(head,5)\20,type=$a(head,5)#20
+ . i sort=9 s len=0 q
+ . i len>0 r data#len s cn=cn+1,rc=$$dbxwebsn(key,cn,data,0)
+ . q
+ q ""
+dbxweblre
+ q $$error()
+ ;
+dbxwebsn(key,cn,data,option) ; set a chunk of request data
+ i key=""!(cn="") q 0
+ i 'option k:cn=1 %mgweb s %mgweb(cn)=data q 0
+ k:cn=1 ^mgweb(key) s ^mgweb(key,cn)=data
+ q 0
  ;
 mgweb(%cgi,%var,%sys)
  n %r,offset,ok,x,sort,type,item,ctx,fun,len,name,value,request,data,param,no,header,content
@@ -1783,6 +1820,217 @@ head() ; format header record
 heade ; error
  q $$ddate(+$h)_" at "_$$dtime($p($h,",",2),0)_"~"_$g(%zcs("port"))_"~"_uci
  ;
+
+%zmgweb
+%zmgweb ;
+ ;
+test ; test
+ ; +not_ydb
+ s $zt="eof^%zmgweb"
+ ;w !,"******",!,REQUEST,!,"*******",!!
+ s ip="127.0.0.1",port=80
+ ;s ip="ubuntu18",port=80
+ s content="a=B&c=d"
+ f i=1:1:1000 s content=content_"&aaaaaaaaaaaaaaaa"_i_"="_i
+ s request=""
+ ;s request=request_"GET http://"_ip_"/mgweb/mgweb.mgw HTTP/1.1"_$c(13,10)
+ s request=request_"POST http://"_ip_"/mgweb/mgweb.mgw HTTP/1.1"_$c(13,10)
+ s request=request_"Host: "_ip_$c(13,10)
+ s request=request_"Accept: */*"_$c(13,10)
+ s request=request_"Accept-Language: en-gb"_$c(13,10)
+ s request=request_"Accept-Encoding: gzip, deflate"_$c(13,10)
+ s request=request_"User-Agent: Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; BTopenworld; SV1; .NET CLR 2.0.50727)"_$c(13,10)
+ i content'="" d
+ . s request=request_"Content-Type: application/x-www-form-urlencoded"_$c(13,10)
+ . s request=request_"Content-Length: "_$l(content)_$c(13,10)
+ . q
+ s request=request_$c(13,10)_content
+ s dev="|TCP|"_port
+ o dev:(ip::"+S"::8192:8192):10 e  w "Can't connect to web server" q
+ u dev w request,!
+ s (header,response)=""
+ s (clen,total)=0
+  ;f  d  u 0 w 4 u dev q
+ f  d  i clen,total'<clen q
+ . r *x
+ . s response=response_$c(x)
+ . i header="",response[$c(13,10,13,10) d
+ . . s header=$p(response,$c(13,10,13,10),1),response=$p(response,$c(13,10,13,10),2,999)
+ . . s clen=+$p(header,"Content-Length: ",2)
+ . . q
+ . s total=$l(response)
+ . q
+eof ; exit
+ c dev
+ ; -not_ydb
+ q
+ ;
+ ;web(%CGIEVAR,%var,%sys)
+web(%cgi,%var,%sys)
+ n res,header,content,x,i,n
+ ; +not_ydb
+ g web1
+ ; -not_ydb
+ g web2
+ q $$weblink(.%cgi,.%var,.%sys)
+ ;s res="HTTP/1.1 200 OK"_$c(13,10)_"Content-type: text/plain"_$c(13,10)_$c(13,10)_"Hello World"
+ ;s res="Hello World"
+ ;q res
+ q
+ ;
+api(%cgi,%var,%sys)
+ s no=$p($g(%cgi("QUERY_STRING")),"no=",2)+0 i no g:$g(%cgi("QUERY_STRING"))["a" web3 g:$g(%cgi("QUERY_STRING"))["isc" web2 g web1
+ ;s n=$i(^%CM) m ^%CM(n,"cgi")=%cgi,^%CM(n,"var")=%var,^%CM(n,"sys")=%sys
+ s res="HTTP/1.1 200 OK"_$c(13,10)_"Content-type: text/html"_$c(13,10)_"X-Weird-Header: the cat sat on the mat"_$c(13,10)_"Connection: close"_$c(13,10)_$c(13,10)
+ s content="<html>"_$c(13,10)_"<head><title>It Works</title></head>"_$c(13,10)_"<h1>It Works!</h1>"_$c(13,10)
+ s content=content_"<br>database: "_$zv_$c(13,10)
+ s content=content_"<br>$IO: "_$io_$c(13,10)
+ s content=content_"<br>$Job: "_$j_$c(13,10)
+ s content=content_"<br>$Zts: "_$h_$c(13,10)
+ s content=content_"<br>$UCI: "_$$getuci^%zmgsis()_$c(13,10)
+ ; +not_ydb
+ s content=content_"<br>$username="_$username_"; $roles="_$roles_$c(13,10)
+ ; -not_ydb
+ i $g(%sys("key"))'="" d  s content=content_"<br>long request: len="_len_"; over "_(i-1)_" subscripts"_$c(13,10)
+ . s len=0
+ . f i=1:1 q:'$d(%var(i))  s len=len+$l($g(%var(i)))
+ . ;f i=1:1 q:'$d(^mgweb(%sys("key"),i))  s len=len+$l($g(^mgweb(%sys("key"),i)))
+ . q
+ ;s x=gx
+ s x="" f  s x=$o(%cgi(x)) q:x=""  s content=content_"<br>cgi: "_x_"="_$g(%cgi(x))_$c(13,10)
+ i $g(%sys("key"))="" s x="" f  s x=$o(%var(x)) q:x=""  s content=content_"<br>var: "_x_"="_$g(%var(x))_$c(13,10)
+ s x="" f  s x=$o(%sys(x)) q:x=""  s content=content_"<br>sys: "_x_"="_$g(%sys(x))_$c(13,10)
+ s content=content_"<br>var length: "_$l($g(%var))_$c(13,10)
+ i $g(%sys("key"))'=""  f i=1:1 q:'$d(^mgweb(%sys("key"),i))  s content=content_"<br>var section "_i_" length: "_$l($g(^mgweb(%sys("key"),i)))_$c(13,10)
+ ;s x=2000-$l(content),pad="",$p(pad,"#",x)=""
+ ;s pad="" f i=1:1:24000 s pad=pad_"<br>1234567890A1234567890A1234567890A1234567890A1234567890A1234567890A1234567890A1234567890A1234567890A1234567890A"_$c(13,10)
+ ;s content=content_pad_"</html>"_$c(13,10)
+ s content=content_"</html>"_$c(13,10)
+ ;s ^%CM=$l(content)_"#"_($l(content)+$l(res))_"#"_$l(res)
+ s res=res_content
+ ;;s x=$l(content) s x=$i(^%cm(x))
+ ;s ^%cm=res
+ q res
+ ;
+web1 ; test
+ s %s=$$stream^%zmgsis(.%sys)
+ d write^%zmgsis(.%s,"HTTP/1.1 200 OK"_$c(13,10)_"Content-type: text/html"_$c(13,10,13,10))
+ d write^%zmgsis(.%s,"<html>"_$c(13,10)_"<head><title>It Works</title></head>"_$c(13,10)_"<h1>It Works! (YottaDB block mode)</h1>"_$c(13,10))
+ d write^%zmgsis(.%s,"<br>database: "_$zv_$c(13,10))
+ d write^%zmgsis(.%s,"<br>$IO: "_$io_$c(13,10))
+ d write^%zmgsis(.%s,"<br>$Job: "_$j_$c(13,10))
+ d write^%zmgsis(.%s,"<br>$Zts: "_$h_$c(13,10))
+ ; +not_ydb
+ w "<br>$username="_$username_"; $roles="_$roles_$c(13,10)
+ ; -not_ydb
+ i $g(%sys("key"))'="" d  d write^%zmgsis(.%s,"<br>long request: len="_len_"; over "_(i-1)_" subscripts"_$c(13,10))
+ . s len=0
+ . f i=1:1 q:'$d(%var(i))  s len=len+$l($g(%var(i)))
+ . ;f i=1:1 q:'$d(^mgweb(%sys("key"),i))  s len=len+$l($g(^mgweb(%sys("key"),i)))
+ . q
+ s x="" f  s x=$o(%cgi(x)) q:x=""  d write^%zmgsis(.%s,"<br>cgi: "_x_"="_$g(%cgi(x))_$c(13,10))
+ i $g(%sys("key"))="" s x="" f  s x=$o(%var(x)) q:x=""  d write^%zmgsis(.%s,"<br>var: "_x_"="_$g(%var(x))_$c(13,10))
+ s x="" f  s x=$o(%sys(x)) q:x=""  d write^%zmgsis(.%s,"<br>sys: "_x_"="_$g(%sys(x))_$c(13,10))
+ d write^%zmgsis(.%s,"<br>var length: "_$l($g(%var))_$c(13,10))
+ i $g(no)'="" f i=1:1:no d write^%zmgsis(.%s,"<br>line of data #"_i_$c(13,10))
+ d write^%zmgsis(.%s,"</html>"_$c(13,10))
+ q %s
+ ;
+web2 ; test
+ s %s=$$stream^%zmgsis(.%sys)
+ ;m ^%cm(2)=%sys
+ w "HTTP/1.1 200 OK"_$c(13,10)_"Content-type: text/html"_$c(13,10,13,10)
+ w "<html>"_$c(13,10)_"<head><title>It Works</title></head>"_$c(13,10)_"<h1>It Works! (ISC block mode)</h1>"_$c(13,10)
+ w "<br>database: "_$zv_$c(13,10)
+ w "<br>$IO: "_$io_$c(13,10)
+ w "<br>$Job: "_$j_$c(13,10)
+ w "<br>$Zts: "_$h_$c(13,10)
+ ; +not_ydb
+ w "<br>$username="_$username_"; $roles="_$roles_$c(13,10)
+ ; -not_ydb
+ i $g(%sys("key"))'="" d  w "<br>long request: len="_len_"; over "_(i-1)_" subscripts"_$c(13,10)
+ . s len=0
+ . f i=1:1 q:'$d(%var(i))  s len=len+$l($g(%var(i)))
+ . ;f i=1:1 q:'$d(^mgweb(%sys("key"),i))  s len=len+$l($g(^mgweb(%sys("key"),i)))
+ . q
+ ;s x=g
+ s x="" f  s x=$o(%cgi(x)) q:x=""  w "<br>cgi: "_x_"="_$g(%cgi(x))_$c(13,10)
+ i $g(%sys("key"))="" s x="" f  s x=$o(%var(x)) q:x=""  w "<br>var: "_x_"="_$g(%var(x))_$c(13,10)
+ s x="" f  s x=$o(%sys(x)) q:x=""  w "<br>sys: "_x_"="_$g(%sys(x))_$c(13,10)
+ w "<br>var length: "_$l($g(%var))_$c(13,10)
+ ;f i=1:1:no w "<br>line of data #"_i_$c(13,10)
+ w "</html>"_$c(13,10)
+ q %s
+ ;
+web3 ; test
+ s %s=$$streamascii^%zmgsis(.%sys)
+ w "HTTP/1.1 200 OK"_$c(13,10)_"Content-type: text/html"_$c(13,10,13,10)
+ w "<html>"_$c(13,10)_"<head><title>It Works</title></head>"_$c(13,10)_"<h1>It Works! (ASCII mode)</h1>"_$c(13,10)
+ w "<br>database: "_$zv_$c(13,10)
+ w "<br>$IO: "_$io_$c(13,10)
+ w "<br>$Job: "_$j_$c(13,10)
+ w "<br>$Zts: "_$h_$c(13,10)
+ ;s x=g
+ s x="" f  s x=$o(%cgi(x)) q:x=""  w "<br>cgi: "_x_"="_$g(%cgi(x))_$c(13,10)
+ s x="" f  s x=$o(%var(x)) q:x=""  w "<br>var: "_x_"="_$g(%var(x))_$c(13,10)
+ s x="" f  s x=$o(%sys(x)) q:x=""  w "<br>sys: "_x_"="_$g(%sys(x))_$c(13,10)
+ f i=1:1:no w "<br>line of data #"_i_$c(13,10)
+ w "</html>"_$c(13,10)
+ q %s
+ ;
+wstest(%cgi,%var,%sys) ; http://localhost/ws.html
+ s %s=$$websocket^%zmgsis(.%sys,0,"")
+ m ^%CM($I(^%CM),"cgi")=%cgi
+ m ^%CM($I(^%CM),"var")=%var
+ m ^%CM($I(^%CM),"sys")=%sys
+ ;Use 0:(/terminator=$char(13)::"+Q")
+loop ; loop
+ r *chr:30 i '$t w "DB server timeout at "_$h d flush^%zmgsis g loop
+ r data:0 s data=$c(chr)_data
+ ;r data
+ s ^%CM($i(^%CM),"wsdata")=data
+ i data="exit" q %s
+ i data="$zv" s data=$zv
+ w "DB server response at "_$h_": "_data d flush^%zmgsis
+ ;w "DB server response with immediate flush at "_$h_": "_data
+ g loop
+ ;
+weblink(%CGIEVAR,%content,%system)
+ ; http://localhost/mgweb/net/mgweb.mgw?wlapp=wldev
+ ; +not_ydb
+ n %s,%rc,%KEY,%KEYHEAD
+ s %s=$$stream^%zmgsis(.%system)
+ n %system
+ s %rc=$$nvpair^%zmgsis(.%KEY,$g(%CGIEVAR("QUERY_STRING")))
+ ;s %rc=$$nvpair^%zmgsis(.%KEY,$g(%content))
+ s %rc=$$content^%zmgsis(.%KEY,.%KEYHEAD,$g(%content),.%CGIEVAR)
+ ;s ^%cm($i(^%cm))=$g(%content)
+ m ^%cm($i(^%cm))=%KEY
+ m ^%cm($i(^%cm))=%KEYHEAD
+ s x="" f  s x=$o(%KEYHEAD(x)) q:x=""  d
+ . n filename,len
+ . s filename=$p($p($p($g(%KEYHEAD(x,"Content-Disposition")),"filename=",2)," ",1),";",1)
+ . s len=$l(filename) i len>1,$e(filename)="""",$e(filename,len)="""" s @("filename="_filename)
+ . i filename="" q
+ . s data=$g(%KEY(x))
+ . s %MPC(x)=""
+ . s ^MGW("MPC",$J,x,1)=data
+ . s %KEY(x)="1#1~0~"_$l(data)_"~"_$g(%KEYHEAD(x,"Content-Type"))_"~"_filename
+ . q
+ s %KEY("MGWLPN")=$g(%sys("server"))
+ s %KEY("MGWCHD")=0
+ s %KEY("MGWUCI")=$namespace
+ s %KEY("MGWNSP")=$namespace
+ s %KEY("MGWLIB")=$g(%CGIEVAR("SCRIPT_NAME"))
+ d weblink1(.%CGIEVAR,.%KEY,.%MPC)
+ q %s
+weblink1(%CGIEVAR,%KEY,%MPC)
+ n (%CGIEVAR,%KEY,%MPC)
+ i $D(%KEY("wlapp")) d ^%wld q
+ d ^%ZMGW2
+ ; -not_ydb
+ q
+
 
 
 
