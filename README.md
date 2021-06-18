@@ -3,10 +3,10 @@
 M/Gateway Service Integration Gateway (**SIG**) for InterSystems **Cache/IRIS** and **YottaDB**.
 
 Chris Munt <cmunt@mgateway.com>  
-23 April 2021, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
+18 June 2021, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
 * Current Release: Version: 3.1; Revision 102a (21 December 2020).
-* SuperServer (%zmgsi routines) Release: Version: 4.2; Revision 21 (23 April 2021).
+* SuperServer (%zmgsi routines) Release: Version: 4.3; Revision 22 (18 June 2021).
 * [Release Notes](#RelNotes) can be found at the end of this document.
 
 Contents
@@ -54,7 +54,7 @@ Change to your development Namespace and check the installation:
        do ^%zmgsi
 
        M/Gateway Developments Ltd - Service Integration Gateway
-       Version: 4.2; Revision 20 (20 April 2021)
+       Version: 4.3; Revision 22 (18 June 2021)
 
 ### YottaDB
 
@@ -82,7 +82,7 @@ Link all the **zmgsi** routines and check the installation:
        do ^%zmgsi
 
        M/Gateway Developments Ltd - Service Integration Gateway
-       Version: 4.2; Revision 20 (20 April 2021)
+       Version: 4.3; Revision 22 (18 June 2021)
 
 
 Note that the version of **zmgsi** is successfully displayed.
@@ -297,6 +297,8 @@ Unless required by applicable law or agreed to in writing, software distributed 
 
 ### v3.1.102a; Superserver v4.2.21 (23 April 2021)
 
-* Related to Superserver vv4.2.20: move multipart section headers into a separate array.
+* Related to Superserver v4.2.20: move multipart section headers into a separate array.
 
+### v3.1.102a; Superserver v4.3.22 (18 June 2021)
 
+* Create the infrastructure to allow **mg\_web** to handle request payloads that exceed the maximum string length of the target DB Server.
