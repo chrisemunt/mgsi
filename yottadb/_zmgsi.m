@@ -28,7 +28,7 @@ a0 d vers^%zmgsis
 defport() ; Return the default TCP port number for this service.
  q 7041
  ;
-start(port) ; start daemon
+start(port,tls) ; start daemon
  n pwnd,v,vn
  new $ztrap set $ztrap="zgoto "_$zlevel_":starte^%zmgsi"
  i $g(port)="" s port=$$defport()
@@ -38,12 +38,12 @@ start(port) ; start daemon
  k ^%zmgsi("stop",port)
  ; Concurrent tcp service (Cache, IRIS, M21, MSM, YottaDB)
  i '$$isidb^%zmgsis(),'$$ism21^%zmgsis(),'$$ismsm^%zmgsis(),'$$isydb^%zmgsis() g starte
- i 'pwnd j accept($g(port)) q
+ i 'pwnd j accept($g(port),$g(tls)) q
  d &pwind.version(.v)
  s vn=$p(v,":",2)
  s vn=$p(vn,".",1)*100+($p(vn,".",2)*10)
  i vn<120 w !,"This version of mg_pwind ("_v_") does not support networking" g starte
- j acceptpw($g(port))
+ j acceptpw($g(port),$g(tls))
  q
 starte ; error
  w !,"This M system does not support a concurrent TCP server"
@@ -74,7 +74,7 @@ killproc(pid) ; stop this listener
  zsy "kill -term "_pid
  q
  ;
-accept(port) ; concurrent tcp service (cache, m21, msm)
+accept(port,tls) ; concurrent tcp service (cache, m21, msm)
  new $ztrap set $ztrap="zgoto "_$zlevel_":halt^%zmgsi"
  d seterror^%zmgsis("")
  s port=+$g(port)
@@ -102,10 +102,10 @@ accept2 ; accept connection
  . s ok=0
  . q
  i 'ok g acceptx
- d event^%zmgsis("incoming connection from "_$piece($key,"|",3)_", starting child server process")
+ i $g(^%zmgsi("loglevel"))>0 d event^%zmgsis("incoming connection from "_$piece($key,"|",3)_", starting child server process")
  s childsock=$p($key,"|",2)
  u dev:(detach=childsock)
- s childproc="child^%zmgsis(port,port):(output="_"""SOCKET:"_childsock_""""_":input="_"""SOCKET:"_childsock_""""_")"
+ s childproc="child^%zmgsis(port,port,tls):(output="_"""SOCKET:"_childsock_""""_":input="_"""SOCKET:"_childsock_""""_")"
  j @childproc ; fork a process to handle the detached socket
  ;
  s errors=0
@@ -126,7 +126,7 @@ accepte ; error
 halt ; halt
  h
  ;
-acceptpw(port) ; concurrent tcp service (YottaDB/mg_pwind)
+acceptpw(port,tls) ; concurrent tcp service (YottaDB/mg_pwind)
  n key,error,ds
  new $ztrap set $ztrap="zgoto "_$zlevel_":acceptpwe^%zmgsi"
  s ^%zmgsi("server",port)=$j
@@ -141,8 +141,8 @@ acceptpw2 ; main accept retry loop
  i error'="" d event^%zmgsis("mg_pwind error (tcpservaccept): "_$h_error) g acceptpwx
  s ds=$p(key,"|",5) i ds'="",'$d(^%zmgsi("server",port,"ds")) s ^%zmgsi("server",port,"ds")=ds
  i key="" h 1 g acceptpw1
- d event^%zmgsis("incoming connection from "_$piece(key,"|",6)_", starting child server process")
- j child^%zmgsis(key,port)
+ i $g(^%zmgsi("loglevel"))>0 d event^%zmgsis("incoming connection from "_$piece(key,"|",6)_", starting child server process")
+ j child^%zmgsis(key,port,tls)
  g acceptpw1
 acceptpwx ; exit
  s ds=$g(^%zmgsi("server",port,"ds")) i ds="" s ds="server"

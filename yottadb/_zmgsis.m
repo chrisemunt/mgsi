@@ -55,12 +55,16 @@ a0 d vers q
  ; v4.2.20:  20 April     2021 (Add functionality to parse multipart MIME content for mg_web)
  ; v4.2.21:  23 April     2021 (Related to v4.2.20: move multipart section headers into a separate array)
  ; v4.3.22:  18 June      2021 (Create the infrastructure to allow mg_web to handle request payloads that exceed the maximum string length of the target DB Server)
+ ; v4.4.23:  18 August    2021 (Add support for TLS secured connectivity for ISC DB Servers;
+ ;                              Correct 'undefined' %payload in content();
+ ;                              Remove 'incoming connection' ... log message;
+ ;                              Add support for native Unicode (UTF16) for InterSystems DB Servers)
  ;
 v() ; version and date
  n v,r,d
- s v="4.3"
- s r=22
- s d="18 June 2021"
+ s v="4.4"
+ s r=23
+ s d="18 August 2021"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -173,6 +177,12 @@ lcase(string) ; convert to lower case
  ;
 ucase(string) ; convert to upper case
  q $tr(string,"abcdefghijklmnopqrstuvwxyz","ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+ ;
+utf8in(string) ; Convert UTF8 to raw Unicode (UTF16)
+ q string
+ ; 
+utf8out(string) ; Convert raw Unicode (UTF16) to UTF8
+ q string
  ;
 vars(a) ; public  system variables
  ;
@@ -303,7 +313,7 @@ recv(%zcs,len,clen,rlen) ; buffered read from client - initialize buffer using b
 inetd ; entry point from [x]inetd
 xinetd ; someone is sure to use this label
  new $ztrap set $ztrap="zgoto "_$zlevel_":inetde^%zmgsis"
- d child(0,0)
+ d child(0,0,"")
  q
 inetde ; error
  w $$error()
@@ -345,7 +355,7 @@ ifc(ctx,request,param) ; entry point from fixed binding
 ifce ; error
  q "00000ce"_$c(10)_"m server error : ["_$g(req(2))_"]"_$tr($$error(),"<>%","[]^")
  ;
-child(pport,port) ; child
+child(pport,port,tls) ; child
  n %zcs,%oref,x,argc,sn,type,var,req,res,oref,cmnd,pcmnd,mcmnd,buf,byref,hlen,clen,rlen,error
  new $ztrap set $ztrap="zgoto "_$zlevel_":childe^%zmgsis"
  i pport["|" s %zcs("pwnd")=pport,pport=$p(pport,"|",2)
@@ -868,15 +878,16 @@ checkunpw(username,password)
  q 1
  ;
 dbx(%zcs,ctx,cmnd,data,len,param) ; entry point from fixed binding
- n %r,obufsize,idx,offset,rc,sort,res,ze,oref,type
+ n %r,obufsize,idx,offset,rc,sort,res,ze,oref,type,utf16
  new $ztrap set $ztrap="zgoto "_$zlevel_":dbxe^%zmgsis"
  s obufsize=$$dsize256($e(data,1,4))
+ s utf16=$a(data,5)
  s idx=$$dsize256($e(data,6,9))
  k %r s offset=11 f %r=1:1 s %r(%r,0)=$$dsize256($e(data,offset,offset+3)) d  i '$d(%r(%r)) s %r=%r-1 q
  . s %r(%r,1)=$a(data,offset+4)\20,%r(%r,2)=$a(data,offset+4)#20 i %r(%r,1)=9 k %r(%r) q
  . i %r(%r,1)=-1 k %r(%r) q
- . ;;i %r>10 k %r(%r) q  ; cmcm hack
  . s %r(%r)=$e(data,offset+5,offset+5+(%r(%r,0)-1))
+ . i $g(utf16) s %r(%r)=$$utf8in(%r(%r))
  . s offset=offset+5+%r(%r,0)
  . q
  s %r(-1,"param")=param
@@ -885,6 +896,7 @@ dbx(%zcs,ctx,cmnd,data,len,param) ; entry point from fixed binding
  i rc=-1 s sort=11 ; error
  s type=1 ; string
  i $g(%r(1))="dbxweb^%zmgsis",res=$c(255,255,255,255) q res
+ i $g(utf16) s res=$$utf8out(res)
  s res=$$esize256($l(res))_$c((sort*20)+type)_res
  q res
 dbxe ; Error
@@ -1158,12 +1170,13 @@ writem(%zcs,content,flush)
 content(%nv,%nvhead,%payload,%cgi) ; generic function for parsing request payload
  n ct,boundary
  s ct=$g(%cgi("CONTENT_TYPE")) i ct="" q 1
- i ct["boundary=" s boundary=$p(ct,"boundary=",2,999) s:$e(boundary)="""" @("boundary="_boundary) q $$multipart(.%nv,.%nvhead,%payload,boundary)
- i ct["form-urlencoded" q $$nvpair(.%nv,%payload)
+ i ct["boundary=" s boundary=$p(ct,"boundary=",2,999) s:$e(boundary)="""" @("boundary="_boundary) q $$multipart(.%nv,.%nvhead,.%payload,boundary)
+ i ct["form-urlencoded" q $$nvpair(.%nv,.%payload)
  q 1
  ;
 nvpair(%nv,%payload) ; parse content type: application/x-www-form-urlencoded
  n i,x,def,name,value,value1
+ s %payload=$g(payload) ; TODO: more work needed to properly support large payloads held in an array
  f i=1:1:$l(%payload,"&") s x=$p(%payload,"&",i),name=$$urld($p(x,"=",1)),value=$$urld($p(x,"=",2,999999)) i name'="" d
  . s def=$d(%nv(name))
  . i 'def s %nv(name)=value q
@@ -1174,6 +1187,7 @@ nvpair(%nv,%payload) ; parse content type: application/x-www-form-urlencoded
  ;
 multipart(%content,%nvhead,%payload,%boundary) ; parse content type: multipart/form-data
  n blen,sn1,sn2,snh,snc,snx,sn,n,headers,header,hname,harray,hvalue,sname,def,temp,temphead
+ s %payload=$g(payload) ; TODO: more work needed to properly support large payloads held in an array
  s blen=$l(boundary) i blen="" q 1
  s sn1=$f(%payload,%boundary,1),sn=0
  f  s sn2=$f(%payload,%boundary,sn1) q:'sn2  d  s sn1=sn2
