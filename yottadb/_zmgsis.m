@@ -1176,7 +1176,7 @@ content(%nv,%nvhead,%payload,%cgi) ; generic function for parsing request payloa
  ;
 nvpair(%nv,%payload) ; parse content type: application/x-www-form-urlencoded
  n i,x,def,name,value,value1
- s %payload=$g(payload) ; TODO: more work needed to properly support large payloads held in an array
+ s %payload=$g(%payload) ; TODO: more work needed to properly support large payloads held in an array
  f i=1:1:$l(%payload,"&") s x=$p(%payload,"&",i),name=$$urld($p(x,"=",1)),value=$$urld($p(x,"=",2,999999)) i name'="" d
  . s def=$d(%nv(name))
  . i 'def s %nv(name)=value q
@@ -1187,7 +1187,7 @@ nvpair(%nv,%payload) ; parse content type: application/x-www-form-urlencoded
  ;
 multipart(%content,%nvhead,%payload,%boundary) ; parse content type: multipart/form-data
  n blen,sn1,sn2,snh,snc,snx,sn,n,headers,header,hname,harray,hvalue,sname,def,temp,temphead
- s %payload=$g(payload) ; TODO: more work needed to properly support large payloads held in an array
+ s %payload=$g(%payload) ; TODO: more work needed to properly support large payloads held in an array
  s blen=$l(boundary) i blen="" q 1
  s sn1=$f(%payload,%boundary,1),sn=0
  f  s sn2=$f(%payload,%boundary,sn1) q:'sn2  d  s sn1=sn2
