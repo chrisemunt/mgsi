@@ -3,10 +3,10 @@
 M/Gateway Service Integration Gateway (**SIG**) for InterSystems **Cache/IRIS** and **YottaDB**.
 
 Chris Munt <cmunt@mgateway.com>  
-18 August 2021, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
+20 August 2021, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
 * Current Release: Version: 3.1; Revision 102a (21 December 2020).
-* SuperServer (%zmgsi routines) Release: Version: 4.4; Revision 23 (18 August 2021).
+* SuperServer (%zmgsi routines) Release: Version: 4.4; Revision 24 (20 August 2021).
 * [Release Notes](#RelNotes) can be found at the end of this document.
 
 Contents
@@ -315,3 +315,7 @@ Unless required by applicable law or agreed to in writing, software distributed 
 * Correct an occasional 'undefined %payload' error in the content^%zmgsis() function.
 * Remove the 'incoming connection ...' event log message unless the global node ^%zmgsi("loglevel") is set to a value greater than 1.
 * Introduce support for native Unicode (UTF16) for InterSystems DB Servers.
+
+### v3.1.102a; Superserver v4.4.24 (20 August 2021)
+
+* Correct a regression introduced in v4.4.23 that led to %zmgsis processes spinning for mg_web applications.
