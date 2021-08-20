@@ -59,12 +59,13 @@ a0 d vers q
  ;                              Correct 'undefined' %payload in content();
  ;                              Remove 'incoming connection' ... log message;
  ;                              Add support for native Unicode (UTF16) for InterSystems DB Servers)
+ ; v4.4.24:  20 August    2021 (Correct a regression introduced in v4.4.23 that led to %zmgsis processes spinning for mg_web applications)
  ;
 v() ; version and date
  n v,r,d
  s v="4.4"
- s r=23
- s d="18 August 2021"
+ s r=24
+ s d="20 August 2021"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -881,7 +882,7 @@ dbx(%zcs,ctx,cmnd,data,len,param) ; entry point from fixed binding
  n %r,obufsize,idx,offset,rc,sort,res,ze,oref,type,utf16
  new $ztrap set $ztrap="zgoto "_$zlevel_":dbxe^%zmgsis"
  s obufsize=$$dsize256($e(data,1,4))
- s utf16=$a(data,5)
+ s utf16=0 ;s utf16=$a(data,5)
  s idx=$$dsize256($e(data,6,9))
  k %r s offset=11 f %r=1:1 s %r(%r,0)=$$dsize256($e(data,offset,offset+3)) d  i '$d(%r(%r)) s %r=%r-1 q
  . s %r(%r,1)=$a(data,offset+4)\20,%r(%r,2)=$a(data,offset+4)#20 i %r(%r,1)=9 k %r(%r) q
@@ -1188,7 +1189,7 @@ nvpair(%nv,%payload) ; parse content type: application/x-www-form-urlencoded
 multipart(%content,%nvhead,%payload,%boundary) ; parse content type: multipart/form-data
  n blen,sn1,sn2,snh,snc,snx,sn,n,headers,header,hname,harray,hvalue,sname,def,temp,temphead
  s %payload=$g(%payload) ; TODO: more work needed to properly support large payloads held in an array
- s blen=$l(boundary) i blen="" q 1
+ s blen=$l(%boundary) i blen="" q 1
  s sn1=$f(%payload,%boundary,1),sn=0
  f  s sn2=$f(%payload,%boundary,sn1) q:'sn2  d  s sn1=sn2
  . ; move end point to start of terminating boundary marker
