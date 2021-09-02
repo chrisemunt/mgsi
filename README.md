@@ -3,10 +3,10 @@
 M/Gateway Service Integration Gateway (**SIG**) for InterSystems **Cache/IRIS** and **YottaDB**.
 
 Chris Munt <cmunt@mgateway.com>  
-20 August 2021, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
+2 September 2021, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
 * Current Release: Version: 3.1; Revision 102a (21 December 2020).
-* SuperServer (%zmgsi routines) Release: Version: 4.4; Revision 24 (20 August 2021).
+* SuperServer (%zmgsi routines) Release: Version: 4.4; Revision 25 (2 September 2021).
 * [Release Notes](#RelNotes) can be found at the end of this document.
 
 Contents
@@ -54,7 +54,7 @@ Change to your development Namespace and check the installation:
        do ^%zmgsi
 
        M/Gateway Developments Ltd - Service Integration Gateway
-       Version: 4.4; Revision 23 (18 August 2021)
+       Version: 4.4; Revision 25 (2 September 2021)
 
 ### YottaDB
 
@@ -82,7 +82,7 @@ Link all the **zmgsi** routines and check the installation:
        do ^%zmgsi
 
        M/Gateway Developments Ltd - Service Integration Gateway
-       Version: 4.4; Revision 23 (18 August 2021)
+       Version: 4.4; Revision 25 (2 September 2021)
 
 
 Note that the version of **zmgsi** is successfully displayed.
@@ -319,3 +319,7 @@ Unless required by applicable law or agreed to in writing, software distributed 
 ### v3.1.102a; Superserver v4.4.24 (20 August 2021)
 
 * Correct a regression introduced in v4.4.23 that led to %zmgsis processes spinning for mg_web applications.
+
+### v3.1.102a; Superserver v4.4.25 (2 September 2021)
+
+* Reinstate support for native Unicode (UTF16) for InterSystems DB Servers - this enhancement is mainly for **mg\-dbx**.
