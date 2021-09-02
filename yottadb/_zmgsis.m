@@ -60,12 +60,13 @@ a0 d vers q
  ;                              Remove 'incoming connection' ... log message;
  ;                              Add support for native Unicode (UTF16) for InterSystems DB Servers)
  ; v4.4.24:  20 August    2021 (Correct a regression introduced in v4.4.23 that led to %zmgsis processes spinning for mg_web applications)
+ ; v4.4.25:   2 September 2021 (Reinstate support for native Unicode (UTF16) for InterSystems DB Servers - mainly for mg-dbx)
  ;
 v() ; version and date
  n v,r,d
  s v="4.4"
- s r=24
- s d="20 August 2021"
+ s r=25
+ s d="2 September 2021"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -882,7 +883,7 @@ dbx(%zcs,ctx,cmnd,data,len,param) ; entry point from fixed binding
  n %r,obufsize,idx,offset,rc,sort,res,ze,oref,type,utf16
  new $ztrap set $ztrap="zgoto "_$zlevel_":dbxe^%zmgsis"
  s obufsize=$$dsize256($e(data,1,4))
- s utf16=0 ;s utf16=$a(data,5)
+ s utf16=$s($a(data,5)=255:1,1:0)
  s idx=$$dsize256($e(data,6,9))
  k %r s offset=11 f %r=1:1 s %r(%r,0)=$$dsize256($e(data,offset,offset+3)) d  i '$d(%r(%r)) s %r=%r-1 q
  . s %r(%r,1)=$a(data,offset+4)\20,%r(%r,2)=$a(data,offset+4)#20 i %r(%r,1)=9 k %r(%r) q
@@ -892,7 +893,7 @@ dbx(%zcs,ctx,cmnd,data,len,param) ; entry point from fixed binding
  . s offset=offset+5+%r(%r,0)
  . q
  s %r(-1,"param")=param
- s rc=$$dbxcmnd(.%r,.%oref,cmnd,.res)
+ s rc=$$dbxcmnd(.%r,.%oref,cmnd,.res,.utf16)
  i rc=0 s sort=1 ; data
  i rc=-1 s sort=11 ; error
  s type=1 ; string
@@ -932,7 +933,7 @@ dbxnet2 ; request data received
  d writem(.%zcs,res,1)
  g dbxnet1
  ;
-dbxcmnd(%r,%oref,cmnd,res) ; Execute command
+dbxcmnd(%r,%oref,cmnd,res,utf16) ; Execute command
  n %io,buf,data,head,idx,len,obufsize,offset,rc,uci,data,sort,type
  new $ztrap set $ztrap="zgoto "_$zlevel_":dbxcmnde^%zmgsis"
  s res=""
@@ -946,6 +947,7 @@ dbxcmnd(%r,%oref,cmnd,res) ; Execute command
  . s res=$o(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)))
  . s data="" i res'="" s data=$g(^(res))
  . s sort=1,type=1
+ . i $g(utf16) s res=$$utf8out(res),data=$$utf8out(data),utf16=0
  . s res=$$esize256($l(res))_$c((sort*20)+type)_res_$$esize256($l(data))_$c((sort*20)+type)_data
  . q
  i cmnd=14 s res=$o(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)),-1) q 0
@@ -953,6 +955,7 @@ dbxcmnd(%r,%oref,cmnd,res) ; Execute command
  . s res=$o(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)),-1)
  . s data="" i res'="" s data=$g(^(res))
  . s sort=1,type=1
+ . i $g(utf16) s res=$$utf8out(res),data=$$utf8out(data),utf16=0
  . s res=$$esize256($l(res))_$c((sort*20)+type)_res_$$esize256($l(data))_$c((sort*20)+type)_data
  . q
  i cmnd=15 k @($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)) s res=0 q 0
@@ -970,6 +973,7 @@ dbxcmnd(%r,%oref,cmnd,res) ; Execute command
  . s res=$q(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)))
  . s data="" i res'="" s data=$g(@res)
  . s sort=1,type=1
+ . i $g(utf16) s res=$$utf8out(res),data=$$utf8out(data),utf16=0
  . s res=$$esize256($l(res))_$c((sort*20)+type)_res_$$esize256($l(data))_$c((sort*20)+type)_data
  . q
  i cmnd=22 s res=$q(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)),-1) q 0
@@ -977,6 +981,7 @@ dbxcmnd(%r,%oref,cmnd,res) ; Execute command
  . s res=$q(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)),-1)
  . s data="" i res'="" s data=$g(@res)
  . s sort=1,type=1
+ . i $g(utf16) s res=$$utf8out(res),data=$$utf8out(data),utf16=0
  . s res=$$esize256($l(res))_$c((sort*20)+type)_res_$$esize256($l(data))_$c((sort*20)+type)_data
  . q
  i cmnd=31 s res=$$dbxfun(.%r,"$$"_%r(1)_"("_$$dbxref(.%r,2,%r,1)_")") q 0
