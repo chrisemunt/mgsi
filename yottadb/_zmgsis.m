@@ -61,12 +61,15 @@ a0 d vers q
  ;                              Add support for native Unicode (UTF16) for InterSystems DB Servers)
  ; v4.4.24:  20 August    2021 (Correct a regression introduced in v4.4.23 that led to %zmgsis processes spinning for mg_web applications)
  ; v4.4.25:   2 September 2021 (Reinstate support for native Unicode (UTF16) for InterSystems DB Servers - mainly for mg-dbx)
+ ; v4.5.26:   2 December  2021 (Add an 'idle timeout' facility to close down inactive processes;
+ ;                              Suppress the recording of 'uci error: ...' messages in the event log unless the log level is set to 1 (or higher);
+ ;                              Introduce an options mask to allow the type of requests serviced by the DB Superserver to be restricted)
  ;
 v() ; version and date
  n v,r,d
- s v="4.4"
- s r=25
- s d="2 September 2021"
+ s v="4.5"
+ s r=26
+ s d="2 December 2021"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -208,6 +211,20 @@ vars(a) ; public  system variables
  s a("maxlen")=$$getmsl()
  q
  ;
+opts(a,opts) ; superserver options mask
+ n dlm,i,x,error
+ s dlm=",",error=""
+ i opts="" k a(0) q ""
+ f i=1:1:4 s a(0,i)=0
+ f i=1:1:$l(opts,dlm) s x=$$lcase($p(opts,dlm,i)) d  i error'="" q
+ . i x="global"!(x="globals") s a(0,1)=1 q
+ . i x="function"!(x="functions") s a(0,2)=1 q
+ . i x="class"!(x="classes") s a(0,3)=1 q
+ . i x="http"!(x="https") s a(0,4)=1 q
+ . s error="Invalid superserver option: "_x
+ . q
+ q error
+ ;
 bvars(a) ; initialise buffer control variables
  s a("maxlen")=$$getmsl()
  s (a("recvsize"),a("recvptr"),a("recvrlen"))=0
@@ -315,7 +332,7 @@ recv(%zcs,len,clen,rlen) ; buffered read from client - initialize buffer using b
 inetd ; entry point from [x]inetd
 xinetd ; someone is sure to use this label
  new $ztrap set $ztrap="zgoto "_$zlevel_":inetde^%zmgsis"
- d child(0,0,"")
+ d child(0,0,"","")
  q
 inetde ; error
  w $$error()
@@ -357,16 +374,18 @@ ifc(ctx,request,param) ; entry point from fixed binding
 ifce ; error
  q "00000ce"_$c(10)_"m server error : ["_$g(req(2))_"]"_$tr($$error(),"<>%","[]^")
  ;
-child(pport,port,tls) ; child
+child(pport,port,tls,opts) ; child
  n %zcs,%oref,x,argc,sn,type,var,req,res,oref,cmnd,pcmnd,mcmnd,buf,byref,hlen,clen,rlen,error
  new $ztrap set $ztrap="zgoto "_$zlevel_":childe^%zmgsis"
  i pport["|" s %zcs("pwnd")=pport,pport=$p(pport,"|",2)
- i $d(%zcs("pwnd")) s %zcs("pwnd")=%zcs("pwnd")_"|"_$zd d &pwind.tcpchldinit(%zcs("pwnd"),"",.error) g:error="" child2 d event(error) d halt(.%zcs)
- i 'pport g child2
+ i $d(%zcs("pwnd")) s %zcs("pwnd")=%zcs("pwnd")_"|"_$zd d &pwind.tcpchldinit(%zcs("pwnd"),"",.error) g:error="" child1 d event(error) d halt(.%zcs)
+ i 'pport g child1
  u $principal
  ;
-child2 ; child request loop
+child1 ; prepare for child request loop
  d vars(.%zcs)
+ s error=$$opts(.%zcs,$g(opts)) i error'="" d event(error)
+child2 ; child request loop
  k ^mgsi($j)
  d delavars(.%zcs)
  k req s argc=1
@@ -376,7 +395,7 @@ child3 ; read request
  s sn=0,type=0,var=%zcs("avar")_argc,req(argc)=var,(cmnd,pcmnd,buf)=""
  i $d(%zcs("pwnd")) d &pwind.tcpread(.buf,0,$g(%zcs("idle_timeout")),.error) s buf=$p(buf,$c(10),1) g:error="" child4 d event(error) d halt(.%zcs)
  i '%zcs("idle_timeout") r *x
- i %zcs("idle_timeout") r *x:%zcs("idle_timeout") i '$t d halt(.%zcs) ; no-activity timeout
+ i %zcs("idle_timeout") r *x:%zcs("idle_timeout") i '$t d halt(.%zcs) ; idle timeout
  i x=0 d halt(.%zcs) ; client disconnect
  s buf=$c(x) f  r *x q:x=10!(x=0)  s buf=buf_$c(x)
  i x=0 d halt(.%zcs) ; client disconnect
@@ -561,7 +580,7 @@ uci(uci) ; change namespace/uci
  s $zg=uci
  q
 ucie ; error
- d event("uci error: "_uci_" : "_$$error())
+ i $g(^%zmgsi("loglevel"))>0 d event("uci error: "_uci_" : "_$$error())
  q
  ;
 getuci() ; get namespace/uci
@@ -584,9 +603,15 @@ info(%zcs,req) ; connection information
  q
  ;
 mcom(%zcs,req,argc,cmnd,%oref) ; execute M command
- n argz,ref,var,varn,com,i,res
+ n argz,ref,var,varn,com,i,ok,res
  new $ztrap set $ztrap="zgoto "_$zlevel_":mcome^%zmgsis"
  s %zcs("buffer")="",res=""
+ ; check options mask
+ i $d(%zcs(0)) s ok=1 d  i 'ok q res
+ . i $g(%zcs(0,1))=0,"SGKDOPIMm"[cmnd s ok=0 q
+ . i $g(%zcs(0,2))=0,"HX"[cmnd s ok=0 q
+ . i $g(%zcs(0,3))=0,"yxhij"[cmnd s ok=0 q
+ . q
  i cmnd="S",argc>2 s ref=$$ref(.req,argc,argc-1,0) x "s "_ref_"="_%zcs("avar")_argc d res(.%zcs,.req,argc,"") q res
  i cmnd="G",argc>1 s ref=$$ref(.req,argc,argc,0) x "s res=$g("_ref_")" d res(.%zcs,.req,argc,res) q res
  i cmnd="K",argc>0 s ref=$$ref(.req,argc,argc,0) x "k "_ref d res(.%zcs,.req,argc,"") q res
@@ -642,21 +667,21 @@ mcom(%zcs,req,argc,cmnd,%oref) ; execute M command
  . i argc=1 x "n ("_varn_") s res=$ClassMethod()"
  . i argc>1 x "n ("_varn_") s res=$ClassMethod("_ref_")"
  . q
- i cmnd="h",argc>0 d  d res(.%zcs,.req,argc,res) q res ; invocation of ISC ClassMethod
+ i cmnd="h",argc>0 d  d res(.%zcs,.req,argc,res) q res ; retrieve ISC Class property value
  . s varn="res" f i=1:1:argc s varn=varn_","_%zcs("avar")_i
  . s ref=$$oref(.req,argc,0)
  . i argc<3 q
  . s @req(2)=%oref(@req(2))
  . x "n ("_varn_") s res=$Property("_ref_")"
  . q
- i cmnd="i",argc>0 d  d res(.%zcs,.req,argc,res) q res ; invocation of ISC ClassMethod
+ i cmnd="i",argc>0 d  d res(.%zcs,.req,argc,res) q res ; set ISC Class property value
  . s varn="res" f i=1:1:argc s varn=varn_","_%zcs("avar")_i
  . s ref=$$oref(.req,argc-1,0)
  . i argc<4 q
  . s @req(2)=%oref(@req(2))
  . x "n ("_varn_") s $Property("_ref_")="_req(argc)
  . q
- i cmnd="j",argc>0 d  d res(.%zcs,.req,argc,res) q res ; invocation of ISC ClassMethod
+ i cmnd="j",argc>0 d  d res(.%zcs,.req,argc,res) q res ; invocation of ISC Method
  . s varn="res" f i=1:1:argc s varn=varn_","_%zcs("avar")_i
  . s ref=$$oref(.req,argc,0)
  . i argc<3 q
@@ -909,6 +934,7 @@ dbxnet(%zcs,buf) ; new wire protocol for access to M
  n %oref,argc,cmnd,i,offset,ok,oref,pcmnd,port,pport,req,res,slen,sn,sort,type,uci,var,x,error
  s uci=$p(buf,"~",2)
  i uci'="" d uci(uci)
+ s %zcs("idle_timeout")=$p(buf,"~",3)+0
  s res=$zv
  s res=$$esize256($l(res))_"0"_res
  d writem(.%zcs,res,1)
@@ -916,7 +942,9 @@ dbxnet(%zcs,buf) ; new wire protocol for access to M
 dbxnet1 ; request loop
  s error="",data=""
  i $d(%zcs("pwnd")) s len=$$getmsl() d &pwind.tcpreadmessage(.data,.len,.cmnd,0,.error) g dbxnet2
- r head#5 s len=$$dsize256(head)-5,cmnd=$a($e(head,5))
+ i '%zcs("idle_timeout") r head#5
+ i %zcs("idle_timeout") r head#5:%zcs("idle_timeout") i '$t d halt(.%zcs) ; idle timeout
+ s len=$$dsize256(head)-5,cmnd=$a($e(head,5))
  i len>$$getmsl() s error="DB Server string size exceeded ("_$$getmsl()_")"
  i len>0 r data#len
 dbxnet2 ; request data received
@@ -934,9 +962,16 @@ dbxnet2 ; request data received
  g dbxnet1
  ;
 dbxcmnd(%r,%oref,cmnd,res,utf16) ; Execute command
- n %io,buf,data,head,idx,len,obufsize,offset,rc,uci,data,sort,type
+ n %io,buf,data,head,idx,len,obufsize,offset,rc,uci,data,sort,type,ok
  new $ztrap set $ztrap="zgoto "_$zlevel_":dbxcmnde^%zmgsis"
  s res=""
+ ; check options mask
+ i $d(%zcs(0)) s ok=1 d  i 'ok q 0
+ . i $g(%zcs(0,1))=0,(((cmnd>10)&(cmnd<30))!((cmnd>100)&(cmnd<300))) s ok=0 q
+ . i $g(%zcs(0,2))=0,cmnd=31,$g(%r(1))'="dbxweb^%zmgsis" s ok=0 q
+ . i $g(%zcs(0,3))=0,((cmnd>40)&(cmnd<60)) s ok=0 q
+ . i $g(%zcs(0,4))=0,cmnd=31,$g(%r(1))="dbxweb^%zmgsis" s ok=0 q
+ . q
  i cmnd=2 s res=0 q 0
  i cmnd=3 s res=$$getuci() q 0
  i cmnd=4 d uci($g(%r(1))) s res=$$getuci() q 0
