@@ -3,10 +3,10 @@
 M/Gateway Service Integration Gateway (**SIG**) for InterSystems **Cache/IRIS** and **YottaDB**.
 
 Chris Munt <cmunt@mgateway.com>  
-2 September 2021, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
+2 December 2021, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
 * Current Release: Version: 3.1; Revision 102a (21 December 2020).
-* SuperServer (%zmgsi routines) Release: Version: 4.4; Revision 25 (2 September 2021).
+* SuperServer (%zmgsi routines) Release: Version: 4.5; Revision 26 (2 December 2021).
 * [Release Notes](#RelNotes) can be found at the end of this document.
 
 Contents
@@ -318,8 +318,17 @@ Unless required by applicable law or agreed to in writing, software distributed 
 
 ### v3.1.102a; Superserver v4.4.24 (20 August 2021)
 
-* Correct a regression introduced in v4.4.23 that led to %zmgsis processes spinning for mg_web applications.
+* Correct a regression introduced in v4.4.23 that led to %zmgsis processes spinning for **mg\_web** applications.
 
 ### v3.1.102a; Superserver v4.4.25 (2 September 2021)
 
 * Reinstate support for native Unicode (UTF16) for InterSystems DB Servers - this enhancement is mainly for **mg\-dbx**.
+
+### v3.1.102a; Superserver v4.5.26 (2 December 2021)
+
+* Add the functionality to support clients that implement an 'idle timeout' facility to close down inactive connections after a specified time.
+* Introduce an options mask to allow the type of requests serviced by the DB Superserver to be restricted.
+	* Request types include: **http**, **https**, **globals**, **functions**, and **classes**
+	* The allowed request types are listed as the third parameter in the start-up function: e.g. Do start^%zmgsi(0,"","http,functions").
+	* The default behaviour is for all request types to be accepted by the DB Superserver.
+* Suppress the recording of 'uci error: ...' messages in the event log unless the log level is set to 1 (or higher).
