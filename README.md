@@ -3,10 +3,10 @@
 M/Gateway Service Integration Gateway (**SIG**) for InterSystems **Cache/IRIS** and **YottaDB**.
 
 Chris Munt <cmunt@mgateway.com>  
-2 December 2021, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
+1 March 2022, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
 * Current Release: Version: 3.1; Revision 102a (21 December 2020).
-* SuperServer (%zmgsi routines) Release: Version: 4.5; Revision 26 (2 December 2021).
+* SuperServer (%zmgsi routines) Release: Version: 4.5; Revision 27 (1 March 2022).
 * [Release Notes](#RelNotes) can be found at the end of this document.
 
 Contents
@@ -332,3 +332,9 @@ Unless required by applicable law or agreed to in writing, software distributed 
 	* The allowed request types are listed as the third parameter in the start-up function: e.g. Do start^%zmgsi(0,"","http,functions").
 	* The default behaviour is for all request types to be accepted by the DB Superserver.
 * Suppress the recording of 'uci error: ...' messages in the event log unless the log level is set to 1 (or higher).
+
+### v3.1.102a; Superserver v4.5.27 (1 March 2022)
+
+* Add the network commands for lock and unlock (used by mg_pwind and mg-dbx).
+* Add the network commands for a 'close object reference' (used by mg_pwind).
+
