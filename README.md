@@ -335,6 +335,6 @@ Unless required by applicable law or agreed to in writing, software distributed 
 
 ### v3.1.102a; Superserver v4.5.27 (1 March 2022)
 
-* Add the network commands for lock and unlock (used by mg_pwind and mg-dbx).
-* Add the network commands for a 'close object reference' (used by mg_pwind).
+* Add the network commands for global node lock and unlock (used by mg_pwind and mg-dbx).
+* Add the network command for a 'close object reference' operation (used by mg_pwind and mg-dbx).
 
