@@ -252,7 +252,7 @@ The **zmgsi** server-side code will write to the following global:
 
 ## <a name="License"></a> License
 
-Copyright (c) 2018-2021 M/Gateway Developments Ltd,
+Copyright (c) 2018-2022 M/Gateway Developments Ltd,
 Surrey UK.                                                      
 All rights reserved.
  
