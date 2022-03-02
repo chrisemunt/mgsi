@@ -3,7 +3,7 @@
  ;  ----------------------------------------------------------------------------
  ;  | %zmgsis                                                                  |
  ;  | Author: Chris Munt cmunt@mgateway.com, chris.e.munt@gmail.com            |
- ;  | Copyright (c) 2016-2021 M/Gateway Developments Ltd,                      |
+ ;  | Copyright (c) 2016-2022 M/Gateway Developments Ltd,                      |
  ;  | Surrey UK.                                                               |
  ;  | All rights reserved.                                                     |
  ;  |                                                                          |
@@ -64,12 +64,13 @@ a0 d vers q
  ; v4.5.26:   2 December  2021 (Add an 'idle timeout' facility to close down inactive processes;
  ;                              Suppress the recording of 'uci error: ...' messages in the event log unless the log level is set to 1 (or higher);
  ;                              Introduce an options mask to allow the type of requests serviced by the DB Superserver to be restricted)
+ ; v4.5.27:   1 March     2022 (Add the network commands for lock and unlock (16, 19) and also the 'close oref' operation (45))
  ;
 v() ; version and date
  n v,r,d
  s v="4.5"
- s r=26
- s d="2 December 2021"
+ s r=27
+ s d="1 March 2022"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -996,6 +997,11 @@ dbxcmnd(%r,%oref,cmnd,res,utf16) ; Execute command
  i cmnd=15 k @($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)) s res=0 q 0
  i cmnd=16 s res=$d(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0))) q 0
  i cmnd=17 s res=$i(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r-1,0)),%r(%r)) q 0
+ i cmnd=18 d  q 0
+ . i $g(%r(%r))=-1 l +@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r-1,0)) s res=1 q
+ . l +@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r-1,0)):%r(%r) s res=$t q
+ . q
+ i cmnd=19 l -@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)) s res=$t q 0
  i cmnd=20 d  q 0
  . n i1,i2,r1,r2
  . s (i1,i2)=1 f i=2:1 q:'$d(%r(i))  i $g(%r(i,1))=3 s i2=i q
