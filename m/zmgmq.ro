@@ -1,0 +1,223 @@
+Cache for Windows^INT^zmgmq
+%RO on 09 Mar 2022 01:00 AM
+%zmgmq
+%zmgmq ;(CM) Message Queue Management
+ ;
+ ;  ----------------------------------------------------------------------------
+ ;  | %zmgsi                                                                   |
+ ;  | Author: Chris Munt cmunt@mgateway.com, chris.e.munt@gmail.com            |
+ ;  | Copyright (c) 2016-2022 M/Gateway Developments Ltd,                      |
+ ;  | Surrey UK.                                                               |
+ ;  | All rights reserved.                                                     |
+ ;  |                                                                          |
+ ;  | http://www.mgateway.com                                                  |
+ ;  |                                                                          |
+ ;  | Licensed under the Apache License, Version 2.0 (the "License");          |
+ ;  | you may not use this file except in compliance with the License.         |
+ ;  | You may obtain a copy of the License at                                  |
+ ;  |                                                                          |
+ ;  | http://www.apache.org/licenses/LICENSE-2.0                               |
+ ;  |                                                                          |
+ ;  | Unless required by applicable law or agreed to in writing, software      |
+ ;  | distributed under the License is distributed on an "AS IS" BASIS,        |
+ ;  | WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. |
+ ;  | See the License for the specific language governing permissions and      |
+ ;  | limitations under the License.                                           |
+ ;  ----------------------------------------------------------------------------
+ ;
+a0 d vers q
+ ;
+ ; v1.0.1:    7 March     2022 (Initial release)
+ ; 
+v() ; version and date
+ n v,r,d
+ s v="1.0"
+ s r=1
+ s d="7 March 2022"
+ q v_"."_r_"."_d
+ ;
+vers ; version information
+ n v
+ s v=$$v()
+ w !,"M/Gateway Developments Ltd - Message Queue Manager"
+ w !,"Version: "_$p(v,".",1,2)_"; Revision "_$p(v,".",3)_" ("_$p(v,".",4)_")"
+ w !
+ q
+ ;
+start(no,conf) ; Start the required number of workers
+ n n
+ k ^zmgmq("stop")
+ s no=+$g(no)
+ d work($g(conf))
+ ;f n=1:1:no j work($g(conf))
+ q
+ ;
+reset ; Reset work queue
+ k ^zmgmq("worker")
+ k ^zmgmq("queue")
+ k ^zmgmq("task")
+ q
+ ;
+work(conf) ; Worker
+ n tn,r,cpid,type,rc,idle,res
+ s ^zmgmq("worker",$j)=""
+ ; +ydb
+ ; i conf'="",$d(^zmgmq("conf",conf,"db")) d dbopen(conf)
+ ; -ydb
+ s idle=0
+loop ; Message processing loop
+ i $d(^zmgmq("stop")) k ^zmgmq("worker",$j) g exit
+ l +^zmgmq("queue")
+ s tn=$o(^zmgmq("queue",""))
+ i tn'="" k ^zmgmq("queue",tn)
+ l -^zmgmq("queue")
+ i tn="" g wait
+ s idle=0
+ s r=$g(^zmgmq("task",tn)),cpid=$p(r,"~",1),type=$p(r,"~",2)
+ s res=$$task(tn,cpid,type)
+ s ^zmgmq("task",tn,"result")=res
+ ; +not_ydb
+ s rc=$System.Event.Signal(cpid)
+ ; -not_ydb
+ g loop
+wait ; Wait for messages to come in
+ s idle=idle+1
+ ; +not_ydb
+ s rc=$System.Event.Wait("",1)
+ ; -not_ydb
+ ; +ydb
+ ; h $s(idle<100:0.01,1:0.1)
+ ; -ydb
+ g loop
+exit ; Exit
+ ; +ydb
+ ; i conf'="",$d(^zmgmq("conf",conf,"db")) d dbclose()
+ ; -ydb
+ q
+ ;
+task(tn,cpid,type) ; Do task
+ n conf,r,n,fun,res,var
+ s $zt="taske^%zmgmq" ; new $ztrap set $ztrap="zgoto "_$zlevel_":taske^%zmgmq"
+ s res=""
+ i type="v" s res=$$v() q res
+ i type="p" s res="OK "_$j q res
+ i type="s" s res="OK STOP" s ^zmgmq("stop")="" q res
+ i type="f" d  q res
+ . s fun="$$"_$g(^zmgmq("task",tn,0))_"("
+ . f n=1:1 q:'$d(^zmgmq("task",tn,n))  s:n>1 fun=fun_"," s fun=fun_"var("_n_")",var(n)=$g(^zmgmq("task",tn,n))
+ . s fun=fun_")"
+ . s @("res="_fun)
+ . s ^zmgmq("task",tn,"result")=res
+ q res
+taske ; Error
+ s res=$$error
+ q res
+ ;
+dbopen(conf) ; Open ISC database
+ n dbtype,path,host,port,username,password,namespace,rc
+ s $zt="dbopene^%zmgmq" ; new $ztrap set $ztrap="zgoto "_$zlevel_":dbopene^%zmgmq"
+ ; +ydb
+ ; s dbtype=$g(^zmgmq("conf",conf,"db","dbtype"))
+ ; s path=$g(^zmgmq("conf",conf,"db","path"))
+ ; s host=$g(^zmgmq("conf",conf,"db","host"))
+ ; s port=$g(^zmgmq("conf",conf,"db","port"))
+ ; s username=$g(^zmgmq("conf",conf,"db","username"))
+ ; s password=$g(^zmgmq("conf",conf,"db","password"))
+ ; s namespace=$g(^zmgmq("conf",conf,"db","namespace"))
+ ; s rc=$&pwind.dbopen(dbtype,path,host,port,username,password,namespace)
+ ; -ydb
+ q
+dbopene ; Error
+ q
+ ;
+dbclose()
+ n rc
+ s $zt="dbclosee^%zmgmq" ; new $ztrap set $ztrap="zgoto "_$zlevel_":dbclosee^%zmgmq"
+ ; +ydb
+ ; i conf'="",$d(^zmgmq("conf",conf,"db")) s rc=$&pwind.dbclose()
+ ; -ydb
+ q
+dbclosee ; Error
+ q
+ ;
+mess(type,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9)
+ n tn,n,res
+ s tn=$$put(type)
+ f n=0:1:9 q:'$d(@("p"_n))  s ^zmgmq("task",tn,n)=@("p"_n)
+ s ^zmgmq("queue",tn)=""
+ s res=$$get(tn,10)
+ q res
+ ;
+fun(p0,p1,p2,p3,p4,p5,p6,p7,p8,p9)
+ n tn,n,res
+ s tn=$$put("f")
+ f n=0:1:9 q:'$d(@("p"_n))  s ^zmgmq("task",tn,n)=@("p"_n)
+ s ^zmgmq("queue",tn)=""
+ s res=$$get(tn,10)
+ q res
+ ;
+funa(p0,p1,p2,p3,p4,p5,p6,p7,p8,p9)
+ n tn,n
+ s tn=$$put("f")
+ f n=0:1:9 q:'$d(@("p"_n))  s ^zmgmq("task",tn,n)=@("p"_n)
+ s ^zmgmq("queue",tn)=""
+ q tn
+ ;
+put(type)
+ n tn,wpid,rc
+ s tn=$i(^zmgmq("queue"))
+ s ^zmgmq("task",tn)=$j_"~"_type
+ ; +not_ydb
+ s wpid="" f  s wpid=$o(^zmgmq("worker",wpid))  q:wpid=""  s rc=$System.Event.Signal(wpid)
+ ; -not_ydb
+ q tn
+ ;
+get(tn,timeout) ; Get result
+ n res,rc,n,wait,twait
+ i tn="" q ""
+ ; +not_ydb
+ Set rc=$System.Event.Wait("", timeout)
+ ; -not_ydb
+ ; +ydb
+ ; s wait=0.01,twait=0 f n=1:1 q:$d(^zmgmq("task",tn,"result"))!(twait>timeout)  h wait s twait=twait+wait s:n>100 wait=0.1
+ ; -ydb
+ s res=$g(^zmgmq("task",tn,"result"))
+ k ^zmgmq("task",tn)
+ q res
+ ;
+error() ; get last error
+ ; +ydb
+ ; q $zs
+ ; -ydb
+ ; +not_ydb
+ q $ze
+ ; -not_ydb
+ ;
+test(a) ; Test function - local
+ q "test function received input '"_$g(a)_"' at "_$h_" (Worker process "_$j_")" 
+ ;
+testrf() ; Test function - remote
+ n rc,res
+ s $zt="testrfe^%zmgmq" ; new $ztrap set $ztrap="zgoto "_$zlevel_":testrfe^%zmgmq"
+ s res=""
+ ; +ydb
+ ; s rc=$&pwind.dbfunction(.res,"getzv^%zmgsis")
+ ; -ydb
+ q res
+testrfe ; Error
+ q $$error^%zmgmq()
+ ;
+testrc(mdate) ; Test classmethod - remote
+ n rc,res
+ s $zt="testrce^%zmgmq" ; new $ztrap set $ztrap="zgoto "_$zlevel_":testrce^%zmgmq"
+ s res=""
+ ; +ydb
+ ; s rc=$&pwind.dbclassmethod(.res,"%Library.Date","LogicalToDisplay",mdate)
+ ; -ydb
+ q res
+testrce ; Error
+ q $$error^%zmgmq()
+ ;
+
+
+
