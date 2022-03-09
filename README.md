@@ -25,6 +25,8 @@ Contents
 
 The M/Gateway Service Integration Gateway (**SIG**) is an Open Source network-based service developed for InterSystems **Cache/IRIS** and the **YottaDB** Database Servers.  It will also work with the **GT.M** database and other **M-like** Databases Servers.  Its core function is to manage connectivity, process and resource pooling for **M-like** DB Servers.  The pooled resources can be used by any of the client-facing technologies in this product series (for example **mg\_php** and **mg\_go** etc ...).
 
+Also included in this package is a message/work queue manager for **YottaDB** and InterSystems **Cache/IRIS**.  This is implemented as a stand-alone module written in M code, documentation for which can be found [here](./workqueue.md).
+
 There are two parts to a complete SIG installation:
 
 * The **DB Superserver**.  This component resides inside the DB Server and is independently required by other M/Gateway Open Source products.
