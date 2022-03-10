@@ -1,6 +1,6 @@
 Cache for Windows^INT^zmgmq^~Format=Cache.S~^RAW
-%RO on 09 Mar 2022 01:00 AM
-%zmgmq^INT^1^66177,76693.0^0
+%RO on 10 Mar 2022 01:00 AM
+%zmgmq^INT^1^66178,36532.0^0
 %zmgmq ;(CM) Message Queue Management
  ;
  ;  ----------------------------------------------------------------------------
@@ -48,8 +48,8 @@ start(no,conf) ; Start the required number of workers
  n n
  k ^zmgmq("stop")
  s no=+$g(no)
- d work($g(conf))
- ;f n=1:1:no j work($g(conf))
+ ; d work($g(conf))
+ f n=1:1:no j work($g(conf))
  q
  ;
 reset ; Reset work queue
