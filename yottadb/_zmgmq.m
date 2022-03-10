@@ -45,8 +45,8 @@ start(no,conf) ; Start the required number of workers
  n n
  k ^zmgmq("stop")
  s no=+$g(no)
- d work($g(conf))
- ;f n=1:1:no J work($g(conf))
+ ; d work($g(conf))
+ f n=1:1:no J work($g(conf))
  q
  ;
 reset ; Reset work queue
