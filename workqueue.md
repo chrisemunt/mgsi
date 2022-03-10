@@ -118,7 +118,7 @@ To reset the Message Queue (The **Message Queue Manager** must be closed down be
 
        do reset^%zmgmq
 
-This procedure will clear the **^zmgmq** global except for the part holding configurations (^zmgmq("config")).
+This procedure will clear the **^zmgmq** global except for the part holding configurations (^zmgmq("conf")).
 
 ## <a name="UsingMQ"></a> Using the Message Queue Manager
 
