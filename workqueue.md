@@ -22,7 +22,7 @@ Contents
 
 The M/Gateway **Message Queue Manager** is an Open Source solution for **YottaDB** and InterSystems **Cache/IRIS**.  The idea behind this module is a fixed set of worker processes running in M that are dedicated to performing specific tasks.  Clients (other M applications) can submit tasks to the Message Queue and either wait for a response to be sent back or simply submit a task to be completed by the **Message Queue Manager** asynchronously.
 
-A likely use case is a set of worker processes that are dedicated to interfacing to an external system.  For example, an external database.  Rather than each M application connecting to and disconnecting from the remote resource the work can instead be performed and the complexity of interfacing with the external resource handled by the dedicated pool of worker processes.
+A likely use case is a set of worker processes that are dedicated to interfacing to an external system.  For example, an external database.  Rather than each M application connecting to, and disconnecting from, the remote resource the work can instead be performed, and the complexity of interfacing with the external resource, handled by the dedicated pool of worker processes.
 
 ## <a name="PreReq"></a> Pre-requisites
 
@@ -105,7 +105,7 @@ The configuration name in this example is **iscnet**
 
        ^zmgmq("conf","iscnet","db","dbtype")="Cache"
        ^zmgmq("conf","iscnet","db","host")="localhost"
-       ^zmgmq("conf","iscnet","db","port")=7777
+       ^zmgmq("conf","iscnet","db","port")=7041
        ^zmgmq("conf","iscnet","db","password")="SYS"
        ^zmgmq("conf","iscnet","db","username")="_SYSTEM"
        ^zmgmq("conf","iscnet","db","namespace")="USER"
@@ -113,7 +113,13 @@ The configuration name in this example is **iscnet**
 Finally, to start a pool of 10 processes connected to the Cache API:
 
        do start^%zmgmq(10,"iscapi")
-  
+
+To reset the Message Queue (The **Message Queue Manager** must be closed down before running this procedure):
+
+       do reset^%zmgmq
+
+This procedure will clear the **^zmgmq** global except for the part holding configurations (^zmgmq("config")).
+
 ## <a name="UsingMQ"></a> Using the Message Queue Manager
 
 ### Ping the Message Queue Manager
@@ -189,7 +195,7 @@ Submitting this function to the Message Queue Manager to be processed asynchrono
 
 The **zmgmq** server-side code will write to the following global:
 
-* **^zmgmq**: The event Log. 
+* **^zmgmq**
 
 
 ## <a name="License"></a> License
