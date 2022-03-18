@@ -25,12 +25,13 @@
 a0 d vers q
  ;
  ; v1.0.1:    7 March     2022 (Initial release)
+ ; v1.0.2:   17 March     2022 (Add pwind wait/signal mechanism to improve performance)
  ; 
 v() ; version and date
  n v,r,d
  s v="1.0"
- s r=1
- s d="7 March 2022"
+ s r=2
+ s d="17 March 2022"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -41,22 +42,33 @@ vers ; version information
  w !
  q
  ;
-start(no,conf) ; Start the required number of workers
- n n
- k ^zmgmq("stop")
+start(no,conf,param) ; Start the required number of workers
+ n n,pwndv,nosig,int
+ k ^zmgmq("stop"),^zmgmq("rt")
+ s param=$$lcase($g(param))
+ s nosig=$s(param["nosig":1,1:0) i nosig s ^zmgmq("rt","ns")=0
+ s int=$s(param["int":1,1:0)
+ i nosig s pwndv=$$pwind() i $p(pwndv,".",3)<6 w !,"Install mg_pwind build 6 (or later)" q
  s no=+$g(no)
- ; d work($g(conf))
- f n=1:1:no J work($g(conf))
+ i int d work($g(conf),nosig,int) q
+ f n=1:1:no J work($g(conf),nosig,int)
  q
  ;
-reset ; Reset work queue
+stop() ; Close down the message queue workers
+ n rc
+ s rc=$$mess("s")
+ q
+ ;
+reset() ; Reset work queue
  k ^zmgmq("worker")
  k ^zmgmq("queue")
  k ^zmgmq("task")
+ k ^zmgmq("stop")
+ k ^zmgmq("rt")
  q
  ;
-work(conf) ; Worker
- n tn,r,cpid,type,rc,idle,res
+work(conf,nosig,int) ; Worker
+ n tn,n,r,cpid,type,rc,idle,res
  s ^zmgmq("worker",$j)=""
  i conf'="",$d(^zmgmq("conf",conf,"db")) d dbopen(conf)
  s idle=0
@@ -71,9 +83,12 @@ loop ; Message processing loop
  s r=$g(^zmgmq("task",tn)),cpid=$p(r,"~",1),type=$p(r,"~",2)
  s res=$$task(tn,cpid,type)
  s ^zmgmq("task",tn,"result")=res
+ i nosig g loop
+ s rc=$&pwind.signal(cpid)
  g loop
 wait ; Wait for messages to come in
  s idle=idle+1
+ i 'nosig s n=$&pwind.signalwait(.rc,$s(idle<100:10,1:100)) g loop
  h $s(idle<100:0.01,1:0.1)
  g loop
 exit ; Exit
@@ -81,7 +96,7 @@ exit ; Exit
  q
  ;
 task(tn,cpid,type) ; Do task
- n conf,r,n,fun,res,var
+ n conf,nosig,int,idle,r,n,fun,res,var
  new $ztrap set $ztrap="zgoto "_$zlevel_":taske^%zmgmq"
  s res=""
  i type="v" s res=$$v() q res
@@ -122,41 +137,61 @@ dbclosee ; Error
  q
  ;
 mess(type,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9)
- n tn,n,res
- s tn=$$put(type)
+ n tn,n,res,nosig
+ s nosig=$d(^zmgmq("rt","ns"))
+ s tn=$$put(type,nosig)
  f n=0:1:9 q:'$d(@("p"_n))  s ^zmgmq("task",tn,n)=@("p"_n)
  s ^zmgmq("queue",tn)=""
- s res=$$get(tn,10)
+ s res=$$get(tn,10,nosig)
  q res
  ;
 fun(p0,p1,p2,p3,p4,p5,p6,p7,p8,p9)
- n tn,n,res
- s tn=$$put("f")
+ n tn,n,res,nosig
+ s nosig=$d(^zmgmq("rt","ns"))
+ s tn=$$put("f",nosig)
  f n=0:1:9 q:'$d(@("p"_n))  s ^zmgmq("task",tn,n)=@("p"_n)
  s ^zmgmq("queue",tn)=""
- s res=$$get(tn,10)
+ s res=$$get(tn,10,nosig)
  q res
  ;
 funa(p0,p1,p2,p3,p4,p5,p6,p7,p8,p9)
- n tn,n
- s tn=$$put("f")
+ n tn,n,nosig
+ s nosig=$d(^zmgmq("rt","ns"))
+ s tn=$$put("f",nosig)
  f n=0:1:9 q:'$d(@("p"_n))  s ^zmgmq("task",tn,n)=@("p"_n)
  s ^zmgmq("queue",tn)=""
  q tn
  ;
-put(type)
+put(type,nosig)
  n tn,wpid,rc
  s tn=$i(^zmgmq("queue"))
  s ^zmgmq("task",tn)=$j_"~"_type
+ i nosig q tn
+ s wpid="" f  s wpid=$o(^zmgmq("worker",wpid))  q:wpid=""  s rc=$&pwind.signal(wpid)
  q tn
  ;
-get(tn,timeout) ; Get result
+get(tn,timeout,nosig) ; Get result
  n res,rc,n,wait,twait
  i tn="" q ""
- s wait=0.01,twait=0 f n=1:1 q:$d(^zmgmq("task",tn,"result"))!(twait>timeout)  h wait s twait=twait+wait s:n>100 wait=0.1
- s res=$g(^zmgmq("task",tn,"result"))
+ i nosig d  g get1
+ . s wait=0.01,twait=0 f n=1:1 q:$d(^zmgmq("task",tn,"result"))!(twait>timeout)  h wait s twait=twait+wait s:n>100 wait=0.1
+ . q
+ s wait=0.01,twait=0 f n=1:1 q:$d(^zmgmq("task",tn,"result"))!(twait>timeout)  s n=$&pwind.signalwait(.rc,(wait*1000)) s twait=twait+wait s:n>100 wait=0.1
+get1 s res=$g(^zmgmq("task",tn,"result"))
  k ^zmgmq("task",tn)
  q res
+ ;
+pwind() ; check if pwind is installed and return version
+ n rc,vers
+ new $ztrap set $ztrap="zgoto "_$zlevel_":pwinde^%zmgmq"
+ s rc=0,vers=""
+ s rc=$&pwind.version(.vers)
+ q vers
+pwinde ; error
+ q ""
+ ;
+lcase(string) ; convert to lower case
+ q $tr(string,"ABCDEFGHIJKLMNOPQRSTUVWXYZ","abcdefghijklmnopqrstuvwxyz")
  ;
 error() ; get last error
  q $zs
