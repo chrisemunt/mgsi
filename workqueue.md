@@ -5,7 +5,7 @@ M/Gateway Message Queue Manager for **YottaDB** and InterSystems **Cache/IRIS**.
 Chris Munt <cmunt@mgateway.com>  
 7 March 2022, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
-* Current Release: Version: 1.0; Revision 1 (7 March 2022).
+* Current Release: Version: 1.0; Revision 2 (17 March 2022).
 * [Release Notes](#RelNotes) can be found at the end of this document.
 
 Contents
@@ -20,7 +20,7 @@ Contents
 
 ## <a name="Overview"></a> Overview
 
-The M/Gateway **Message Queue Manager** is an Open Source solution for **YottaDB** and InterSystems **Cache/IRIS**.  The idea behind this module is a fixed set of worker processes running in M that are dedicated to performing specific tasks.  Clients (other M applications) can submit tasks to the Message Queue and either wait for a response to be sent back or simply submit a task to be completed by the **Message Queue Manager** asynchronously.
+The M/Gateway **Message Queue Manager** (**MQM**) is an Open Source solution for **YottaDB** and InterSystems **Cache/IRIS**.  The idea behind this module is a fixed set of worker processes running in M that are dedicated to performing specific tasks.  Clients (other M applications) can submit tasks to the Message Queue and either wait for a response to be sent back or simply submit a task to be completed by the **Message Queue Manager** asynchronously.
 
 A likely use case is a set of worker processes that are dedicated to interfacing to an external system.  For example, an external database.  Rather than each M application connecting to, and disconnecting from, the remote resource the work can instead be performed, and the complexity of interfacing with the external resource, handled by the dedicated pool of worker processes.
 
@@ -47,7 +47,7 @@ Change to your development Namespace and check the installation:
        do ^%zmgmq
 
        M/Gateway Developments Ltd - Message Queue Manager
-       Version: 1.0; Revision 1 (7 March 2022)
+       Version: 1.0; Revision 2 (17 March 2022)
 
 ### YottaDB
 
@@ -75,7 +75,7 @@ Link the **zmgmq** routines and check the installation:
        do ^%zmgmg
 
        M/Gateway Developments Ltd - Message Queue Manager
-       Version: 1.0; Revision 1 (7 March 2022)
+       Version: 1.0; Revision 2 (17 March 2022)
 
 
 Note that the version of **zmgmq** is successfully displayed.
@@ -85,9 +85,12 @@ Note that the version of **zmgmq** is successfully displayed.
 
 Start the **Message Queue Manager** using the following command:
 
-       do start^%zmgmq(<no_workers>, <configuration_name>) 
+       do start^%zmgmq(<no_workers>, <configuration_name>, <parameters>) 
 
-Specify the number of worker processes to start (**no\_workers**) and, optionally, supply a **configuration\_name**.  The configuration name will, for example, relate to the parameters required to connect to an external data source.
+Specify the number of worker processes to start (**no\_workers**) and, optionally, supply a **configuration\_name**.  The configuration name will, for example, relate to the parameters required to connect to an external data source.  The **parameters** argument can include the following options in a comma-separated list:
+
+* **int** - Run the **Message Queue Manager** in interactive single-process mode.  This will result in the **MQM** running in the terminal window from which it was started.
+* **nosig** - By default, the **MQM** will use signals as a means for communicating with its clients.  If **nosig** is specified then signals will not be used and a simple hang and back-off algorithm used instead.  A situation where this option might be used is for **YottaDB** installations that don't have **mg\_pwind** installed.  The **mg\_pwind** module contains the signalling functionality used by the **MQM** for **YottaDB**.
 
 Example 1: A configuration defining an API-based connection to a Cache database.
 
@@ -113,6 +116,10 @@ The configuration name in this example is **iscnet**
 Finally, to start a pool of 10 processes connected to the Cache API:
 
        do start^%zmgmq(10,"iscapi")
+
+To stop the **Message Queue Manager** and close down all worker processes:
+
+       do stop^%zmgmq(10,"iscapi")
 
 To reset the Message Queue (The **Message Queue Manager** must be closed down before running this procedure):
 
@@ -219,4 +226,10 @@ Unless required by applicable law or agreed to in writing, software distributed 
 ### v1.0.1 (7 March 2022)
 
 * Initial Release
+
+### v1.0.2 (17 March 2022)
+
+* Introduce signal based communication between clients and the **Message Queue Manager**.
+	* This requires **mg\_pwind** version 1.3.6 (or later) for YottaDB.
+* Introduce the ability to run the **Message Queue Manager** in interactive single-process mode.
 
