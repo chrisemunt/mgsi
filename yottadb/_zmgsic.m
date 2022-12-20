@@ -107,7 +107,6 @@ open(fd,host,port,nspace,timeout,system,user,pwd)
  i fd("timeout")<3 s fd("timeout")=3
  s fd("dev")="client"_":"_$j
  open fd("dev"):(connect=fd("host")_":"_fd("port")_":TCP"):fd("timeout"):"SOCKET" e  k fd q 0
- w !,"result=",$t
  s buffer="dbx1~"_fd("nspace")_$c(10)
  s result=$$req(.fd,.buffer)
  q 1
