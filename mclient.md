@@ -7,21 +7,22 @@ Chris Munt <cmunt@mgateway.com>
 
 Contents
 
-* [Overview](#Overview") 
-* [Pre-requisites](#PreReq")
-* [Installing the SIG M Client](#InstallMGC)
-* [Connecting to the database](#Connect)
-* [Invocation of database commands](#DBCommands)
-* [Invocation of database functions](#DBFunctions)
-* [Transaction Processing](#TProcessing)
-* [Direct access to InterSystems classes (IRIS and Cache)](#DBClasses)
-* [License](#License)
+* [Overview](#overview") 
+* [Prerequisites](#prereq")
+* [Installing the SIG M Client](#install)
+* [Connecting to the database](#connect)
+* [Invocation of database commands](#dbcommands)
+* [Invocation of database functions](#dbfunctions)
+* [Transaction Processing](#tprocessing)
+* [Direct access to InterSystems classes (IRIS and Cache)](#dbclasses)
+* [License](#license)
+* [Release Notes](#relnotes)
 
-## <a name="Overview"></a> Overview
+## <a name="overview">Overview</a>
 
 The M/Gateway **SIG M Client (%zmgsic)** is an Open Source solution for **YottaDB** and InterSystems **Cache/IRIS**.  It provides remote access to data, functions and InterSystems classes.  The **SIG** (or superserver) must be running on the target remote system.  The remote system can be of the same type as the client or different.  In other words, **YottaDB** clients can access data and functionality on remote InterSystems **Cache/IRIS** systems and _vice versa_.
 
-## <a name="PreReq"></a> Pre-requisites
+## <a name="prereq">Prerequisites</a>
 
 InterSystems **Cache/IRIS** or **YottaDB** (or similar M DB Server):
 
@@ -29,7 +30,7 @@ InterSystems **Cache/IRIS** or **YottaDB** (or similar M DB Server):
        https://yottadb.com/
 
 
-## <a name="InstallMGC"></a> Installing the SIG M Client
+## <a name="install">Installing the SIG M Client</a>
 
 The **SIG M Client** consists of a single M routine (**%zmgsic**).
 
@@ -78,7 +79,7 @@ Link the **zmgsic** routine and check the installation:
 Note that the version of **zmgsic** is successfully displayed.
 
 
-## <a name="Connect"></a> Connecting to the database
+## <a name="connect">Connecting to the database</a>
 
        set result=$$open^%zmgsic(.cx,<host>,<port>[,<nspace>,<timeout>])
 
@@ -126,7 +127,7 @@ Example 2 (Change the current Namespace):
        set result=$$close^%zmgsic(.cx) 
 
 
-## <a name="DBCommands"></a> Invocation of database commands
+## <a name="dbcommands">Invocation of database commands</a>
 
 ### Set a record
 
@@ -233,7 +234,7 @@ Example 2 (merge ^MyGlobal2(0) to ^MyGlobal1(1)):
        set result=$$merge^%zmgsic(.cx,"^MyGlobal1",1,"^MyGlobal2",0)
 
 
-## <a name="DBFunctions"></a> Invocation of database functions
+## <a name="dbfunctions">Invocation of database functions</a>
 
        set result=$$function^%zmgsic(.cx,<function>,<parameters>)
       
@@ -249,7 +250,7 @@ Client invocation:
       set result=$$function^%zmgsic(.cx,"add^math",2,3)
 
 
-## <a name="TProcessing"></a> Transaction Processing
+## <a name="tprocessing">Transaction Processing</a>
 
 M DB Servers implement Transaction Processing by means of the functions described in this section.
 
@@ -279,7 +280,7 @@ M DB Servers implement Transaction Processing by means of the functions describe
 * On successful completion this method will return zero, or an error code on failure.
 
 
-## <a name="DBClasses"></a> Direct access to InterSystems classes (IRIS and Cache)
+## <a name="dbclasses">Direct access to InterSystems classes (IRIS and Cache)</a>
 
 ### Invocation of a ClassMethod
 
@@ -339,7 +340,7 @@ Calculate person's age at a particular date:
        set age=$$method^%zmgsic(.cx,person,"Age",today)
 
 
-## <a name="License"></a> License
+## <a name="license">License</a>
 
 Copyright (c) 2021-2022 M/Gateway Developments Ltd,
 Surrey UK.                                                      
@@ -356,7 +357,7 @@ Licensed under the Apache License, Version 2.0 (the "License"); you may not use 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.      
 
 
-## <a name="RelNotes"></a>Release Notes
+## <a name="relnotes">Release Notes</a>
 
 ### v1.0.1 (1 December 2022)
 
