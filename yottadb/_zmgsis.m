@@ -3,7 +3,7 @@
  ;  ----------------------------------------------------------------------------
  ;  | %zmgsis                                                                  |
  ;  | Author: Chris Munt cmunt@mgateway.com, chris.e.munt@gmail.com            |
- ;  | Copyright (c) 2016-2022 M/Gateway Developments Ltd,                      |
+ ;  | Copyright (c) 2016-2023 M/Gateway Developments Ltd,                      |
  ;  | Surrey UK.                                                               |
  ;  | All rights reserved.                                                     |
  ;  |                                                                          |
@@ -65,12 +65,13 @@ a0 d vers q
  ;                              Suppress the recording of 'uci error: ...' messages in the event log unless the log level is set to 1 (or higher);
  ;                              Introduce an options mask to allow the type of requests serviced by the DB Superserver to be restricted)
  ; v4.5.27:   1 March     2022 (Add the network commands for lock and unlock (16, 19) and also the 'close oref' operation (45))
+ ; v4.5.28:   3 February  2023 (Allow the initial worker initialization message for the DBX protocol to be resent to an open/active connection)
  ;
 v() ; version and date
  n v,r,d
  s v="4.5"
- s r=27
- s d="1 March 2022"
+ s r=28
+ s d="3 February 2023"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -398,7 +399,7 @@ child3 ; read request
  i '%zcs("idle_timeout") r *x
  i %zcs("idle_timeout") r *x:%zcs("idle_timeout") i '$t d halt(.%zcs) ; idle timeout
  i x=0 d halt(.%zcs) ; client disconnect
- s buf=$c(x) f  r *x q:x=10!(x=0)  s buf=buf_$c(x)
+ s buf=$c(x) f  r *x:10 q:'$t  q:x=10!(x=0)  s buf=buf_$c(x)
  i x=0 d halt(.%zcs) ; client disconnect
 child4 ; request header received
  i buf="xDBC" g main^%mgsqln
@@ -945,6 +946,15 @@ dbxnet1 ; request loop
  i $d(%zcs("pwnd")) s len=$$getmsl() d &pwind.tcpreadmessage(.data,.len,.cmnd,0,.error) g dbxnet2
  i '%zcs("idle_timeout") r head#5
  i %zcs("idle_timeout") r head#5:%zcs("idle_timeout") i '$t d halt(.%zcs) ; idle timeout
+ i $e(head,1,4)="dbx1" d  g dbxnet1  ; v4.5.28
+ . s buf=head f  r *x:10 q:'$t  q:x=10!(x=0)  s buf=buf_$c(x)
+ . s uci=$p(buf,"~",2)
+ . i uci'="" d uci(uci)
+ . s %zcs("idle_timeout")=$p(buf,"~",3)+0
+ . s res=$zv
+ . s res=$$esize256($l(res))_"0"_res
+ . d writem(.%zcs,res,1)
+ . q
  s len=$$dsize256(head)-5,cmnd=$a($e(head,5))
  i len>$$getmsl() s error="DB Server string size exceeded ("_$$getmsl()_")"
  i len>0 r data#len

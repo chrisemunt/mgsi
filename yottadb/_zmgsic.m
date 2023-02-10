@@ -3,7 +3,7 @@
  ;  ----------------------------------------------------------------------------
  ;  | %zmgsic                                                                  |
  ;  | Author: Chris Munt cmunt@mgateway.com, chris.e.munt@gmail.com            |
- ;  | Copyright (c) 2016-2022 M/Gateway Developments Ltd,                      |
+ ;  | Copyright (c) 2016-2023 M/Gateway Developments Ltd,                      |
  ;  | Surrey UK.                                                               |
  ;  | All rights reserved.                                                     |
  ;  |                                                                          |
@@ -74,12 +74,13 @@
 a0 d vers q
  ;
  ; v1.0.1:    1 December  2022
+ ; v1.0.2:    3 February  2023 (Increase the maximum number of subscripts/arguments from 8 to 20)
  ;
 v() ; version and date
  n v,r,d
  s v="1.0"
- s r=1
- s d="1 December 2022"
+ s r=2
+ s d="3 February 2023"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -131,7 +132,7 @@ namespace(fd,nspace)
  s result=$$req(.fd,.buffer)
  q result
  ;
-set(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+set(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -139,7 +140,7 @@ set(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-get(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+get(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -147,7 +148,7 @@ get(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-order(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+order(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -155,7 +156,7 @@ order(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  
-previous(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+previous(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -163,7 +164,7 @@ previous(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-kill(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+kill(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -171,7 +172,7 @@ kill(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-data(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+data(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -179,7 +180,7 @@ data(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-increment(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+increment(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -187,7 +188,7 @@ increment(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-lock(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+lock(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -195,7 +196,7 @@ lock(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-unlock(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+unlock(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -203,7 +204,7 @@ unlock(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-merge(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+merge(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -211,7 +212,7 @@ merge(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-function(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+function(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -219,7 +220,7 @@ function(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-classmethod(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+classmethod(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -227,7 +228,7 @@ classmethod(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-getproperty(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+getproperty(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -235,7 +236,7 @@ getproperty(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-setproperty(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+setproperty(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -243,7 +244,7 @@ setproperty(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-method(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+method(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -251,7 +252,7 @@ method(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-closeobject(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+closeobject(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -420,6 +421,13 @@ test ; A simple test - reads and writes global ^CM
  s x="" f  s x=$$previous(.fd,"^CM",x) q:x=""  w !,x," = ",$$get(.fd,"^CM",x)
  w !,"increment (0.5) ..."
  s x="" f n=1:1:10 s x=$$increment(.fd,"^CM",0.5) w !,x
+ w !,"maximum subscripts test ..."
+ f n=1:1:5 s x=$$set(.fd,"^CM","x",2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,n,"data record# "_n)
+ s x="" f  s x=$$order(.fd,"^CM","x",2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,x) q:x=""  d
+ . w !,"$data=",$$data(.fd,"^CM","x",2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,x)
+ . w " ",x," = ",$$get(.fd,"^CM","x",2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,x)
+ . s x=$$kill(.fd,"^CM","x",2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,x)
+ . q
  s x=$$function(.fd,"fun^cmfun","abc")
  w !,"function: ",x
  s x=$$classmethod(.fd,"%Library.Date","DisplayToLogical","10/10/2019")
