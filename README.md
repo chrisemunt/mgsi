@@ -3,10 +3,10 @@
 M/Gateway Service Integration Gateway (**SIG**) for InterSystems **Cache/IRIS** and **YottaDB**.
 
 Chris Munt <cmunt@mgateway.com>  
-1 March 2022, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
+3 February 2023, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
 * Current Release: Version: 3.1; Revision 102a (21 December 2020).
-* SuperServer (%zmgsi routines) Release: Version: 4.5; Revision 27 (1 March 2022).
+* SuperServer (%zmgsi routines) Release: Version: 4.5; Revision 28 (3 February 2023).
 * [Release Notes](#RelNotes) can be found at the end of this document.
 
 Contents
@@ -256,7 +256,7 @@ The **zmgsi** server-side code will write to the following global:
 
 ## <a name="License"></a> License
 
-Copyright (c) 2018-2022 M/Gateway Developments Ltd,
+Copyright (c) 2018-2023 M/Gateway Developments Ltd,
 Surrey UK.                                                      
 All rights reserved.
  
@@ -342,3 +342,6 @@ Unless required by applicable law or agreed to in writing, software distributed 
 * Add the network commands for global node lock and unlock (used by mg_pwind and mg-dbx).
 * Add the network command for a 'close object reference' operation (used by mg_pwind and mg-dbx).
 
+### v3.1.102a; Superserver v4.5.28 (3 February 2023)
+
+* Allow the initial worker initialization message for the DBX protocol to be resent to an open/active connection.  This change was made primarily to allow the M client to seamlessly reconnect to an existing (open) connection to the Superserver.

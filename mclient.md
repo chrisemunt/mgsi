@@ -3,7 +3,7 @@
 M/Gateway M client to the Service Integration Gateway (**SIG**)
 
 Chris Munt <cmunt@mgateway.com>  
-1 December 2022, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
+3 February 2023, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
 Contents
 
@@ -342,7 +342,7 @@ Calculate person's age at a particular date:
 
 ## <a name="license">License</a>
 
-Copyright (c) 2021-2022 M/Gateway Developments Ltd,
+Copyright (c) 2021-2023 M/Gateway Developments Ltd,
 Surrey UK.                                                      
 All rights reserved.
  
@@ -362,3 +362,7 @@ Unless required by applicable law or agreed to in writing, software distributed 
 ### v1.0.1 (1 December 2022)
 
 * Initial Release
+
+### v1.0.2 (3 February 2023)
+
+* Increase the maximum number of subscripts/arguments from 8 to 20.
