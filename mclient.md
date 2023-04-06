@@ -3,7 +3,7 @@
 M/Gateway M client to the Service Integration Gateway (**SIG**)
 
 Chris Munt <cmunt@mgateway.com>  
-3 February 2023, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
+5 April 2023, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
 Contents
 
@@ -171,9 +171,9 @@ Example:
       
 Example:
 
-       set key = ""
+       set key=""
        for  set key=$$order^%zmgsic(.cx,"person",key) quit:key=""  do
-       . write !,"Person: ",key,' : ',$$get^%zmgsic(.cx,"person",key)
+       . write !,"Person: ",key," : ",$$get^%zmgsic(.cx,"person",key)
        . quit
 
 
@@ -183,9 +183,57 @@ Example:
       
 Example:
 
-       set key = ""
+       set key=""
        for  set key=$$previous^%zmgsic(.cx,"person",key) quit:key=""  do
-       . write !,"Person: ",key,' : ',$$get^%zmgsic(.cx,"person",key)
+       . write !,"Person: ",key," : ",$$get^%zmgsic(.cx,"person",key)
+       . quit
+
+
+### Parse a set of global nodes (in order)
+
+       set result=$$nnode^%zmgsic(.cx,<global_reference>)
+      
+Example:
+
+       set node="^person"
+       for  set node=$$nnode^%zmgsic(.cx,node) quit:node=""  do
+       . write !,"Person Record Node: ",node
+       . quit
+
+
+### Parse a set of global nodes (in order) and get associated data
+
+       set result=$$nnoded^%zmgsic(.cx,<global_reference>,.<data>)
+      
+Example:
+
+       set node="^person"
+       for  set node=$$nnoded^%zmgsic(.cx,node,.data) quit:node=""  do
+       . write !,"Person Record Node: ",node,", Data: ",data
+       . quit
+
+
+### Parse a set of global nodes (in reverse order)
+
+       set result=$$pnode^%zmgsic(.cx,<global_reference>)
+      
+Example:
+
+       set node="^person"
+       for  set node=$$pnode^%zmgsic(.cx,node) quit:node=""  do
+       . write !,"Person Record Node: ",node
+       . quit
+
+
+### Parse a set of global nodes (in reverse order) and get associated data
+
+       set result=$$pnoded^%zmgsic(.cx,<global_reference>,.<data>)
+      
+Example:
+
+       set node="^person"
+       for  set node=$$pnoded^%zmgsic(.cx,node,.data) quit:node=""  do
+       . write !,"Person Record Node: ",node,", Data: ",data
        . quit
 
 
@@ -220,18 +268,29 @@ Example (unlock global node '1'):
 
 ### Merge (or copy) part of one global to another
 
-
-Merge from global2 to global1:
-
-       set result=$$merge^%zmgsic(.cx,<global1>[,<key1>],<global2>[,<key2>])
+       set result=$$merge^%zmgsic(.cx,<global_reference_to>,<global_reference_from>)
       
 Example 1 (merge ^MyGlobal2 to ^MyGlobal1):
 
        set result=$$merge^%zmgsic(.cx,"^MyGlobal1","^MyGlobal2")
 
-Example 2 (merge ^MyGlobal2(0) to ^MyGlobal1(1)):
+Example 2 (merge ^MyGlobal2("X",0) to ^MyGlobal1("Y",1)):
 
-       set result=$$merge^%zmgsic(.cx,"^MyGlobal1",1,"^MyGlobal2",0)
+       set result=$$merge^%zmgsic(.cx,"^MyGlobal1(""Y"",1)","^MyGlobal2(""X"",0)")
+
+
+### Merge (or copy) part of a remote global to a local global
+
+       set result=$$mergetoloc^%zmgsic(.cx,<global_reference_local>,<global_reference_remote>)
+
+This function works the same way as the merge() function except that it will merge (or copy) all or part of a  remote global to a local global.
+
+
+### Merge (or copy) part of a local global to a remote global
+
+       set result=$$mergetorem^%zmgsic(.cx,<global_reference_remote>,<global_reference_local>)
+
+This function works the same way as the merge() function except that it will merge (or copy) all or part of a local global to a remote global.
 
 
 ## <a name="dbfunctions">Invocation of database functions</a>
@@ -366,3 +425,14 @@ Unless required by applicable law or agreed to in writing, software distributed 
 ### v1.0.2 (3 February 2023)
 
 * Increase the maximum number of subscripts/arguments from 8 to 20.
+
+### v1.0.3 (5 April 2023)
+
+* Improve the merge() function.
+	* Introduce mergetoloc(). Merge remote global to local global.
+	* Introduce mergetorem(). Merge local global to remote global.
+* Introduce support for the M $Query() function.
+	* nnode(): Get next global node.
+	* nnoded(): Get next global node and associated data.
+	* pnode(): Get previous global node.
+	* pnoded(): Get previous global node and associated data.
