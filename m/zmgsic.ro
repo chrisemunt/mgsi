@@ -1,12 +1,12 @@
 Cache for Windows^INT^zmgsic
-%RO on 13 Dec 2022 01:00 AM
+%RO on 06 Apr 2023 01:00 AM
 %zmgsic
 %zmgsic ;(CM) Service Integration - Client
  ;
  ;  ----------------------------------------------------------------------------
  ;  | %zmgsic                                                                  |
  ;  | Author: Chris Munt cmunt@mgateway.com, chris.e.munt@gmail.com            |
- ;  | Copyright (c) 2016-2022 M/Gateway Developments Ltd,                      |
+ ;  | Copyright (c) 2016-2023 M/Gateway Developments Ltd,                      |
  ;  | Surrey UK.                                                               |
  ;  | All rights reserved.                                                     |
  ;  |                                                                          |
@@ -58,6 +58,10 @@ Cache for Windows^INT^zmgsic
  ;  DBX_CMND_GLOCK         18
  ;  DBX_CMND_GUNLOCK       19
  ;  DBX_CMND_GMERGE        20
+ ;  DBX_CMND_GNNODE        21
+ ;  DBX_CMND_GNNODEDATA    211
+ ;  DBX_CMND_GPNODE        22
+ ;  DBX_CMND_GPNODEDATA    221
  ;
  ;  DBX_CMND_FUNCTION      31
  ;
@@ -77,12 +81,15 @@ Cache for Windows^INT^zmgsic
 a0 d vers q
  ;
  ; v1.0.1:    1 December  2022
+ ; v1.0.2:    3 February  2023 (Increase the maximum number of subscripts/arguments from 8 to 20)
+ ; v1.0.3:    5 April     2023 (Improve the merge() function. Introduce mergetoloc() and mergetorem() functions
+ ;                              Introduce support for the M $Query() function)
  ;
 v() ; version and date
  n v,r,d
  s v="1.0"
- s r=1
- s d="1 December 2022"
+ s r=3
+ s d="5 April 2023"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -140,7 +147,7 @@ namespace(fd,nspace)
  s result=$$req(.fd,.buffer)
  q result
  ;
-set(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+set(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -148,7 +155,7 @@ set(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-get(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+get(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -156,15 +163,15 @@ get(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-order(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+order(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
  s offset=$$bterm(.buffer,offset,13)
  s result=$$req(.fd,.buffer)
  q result
- 
-previous(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+ ;
+previous(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -172,7 +179,43 @@ previous(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-kill(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+nnode(fd,gref)
+ n offset,buffer,result
+ s offset=$$binit(.buffer)
+ s offset=$$adddata(.buffer,offset,gref,1,1)
+ s offset=$$bterm(.buffer,offset,21)
+ s result=$$req(.fd,.buffer)
+ q result
+ ;
+nnoded(fd,gref,data)
+ n len1,len2,offset,buffer,result
+ s data=""
+ s offset=$$binit(.buffer)
+ s offset=$$adddata(.buffer,offset,gref,1,1)
+ s offset=$$bterm(.buffer,offset,211)
+ s result=$$req(.fd,.buffer)
+ i result'="" s len1=$$dsize256($e(result,1,4)),len2=$$dsize256($e(result,len1+6,len1+9)),data=$e(result,len1+11,len1+len2+10),result=$e(result,6,len1+5)
+ q result
+ ;
+pnode(fd,gref)
+ n offset,buffer,result
+ s offset=$$binit(.buffer)
+ s offset=$$adddata(.buffer,offset,gref,1,1)
+ s offset=$$bterm(.buffer,offset,22)
+ s result=$$req(.fd,.buffer)
+ q result
+ ;
+pnoded(fd,gref,data)
+ n len1,len2,offset,buffer,result
+ s data=""
+ s offset=$$binit(.buffer)
+ s offset=$$adddata(.buffer,offset,gref,1,1)
+ s offset=$$bterm(.buffer,offset,221)
+ s result=$$req(.fd,.buffer)
+ i result'="" s len1=$$dsize256($e(result,1,4)),len2=$$dsize256($e(result,len1+6,len1+9)),data=$e(result,len1+11,len1+len2+10),result=$e(result,6,len1+5)
+ q result
+ ;
+kill(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -180,7 +223,7 @@ kill(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-data(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+data(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -188,7 +231,7 @@ data(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-increment(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+increment(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -196,7 +239,7 @@ increment(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-lock(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+lock(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -204,7 +247,7 @@ lock(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-unlock(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+unlock(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -212,15 +255,61 @@ unlock(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-merge(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
- n n,d,offset,buffer,result
+merge(fd,grefto,greffr)
+ n n,d,offset,buffer,nto,nfr,ato,afr,vsto,vsfr,result
+ i $$tref(grefto)=-1 q 0
+ i $$tref(greffr)=-1 q 0
+ s nto=$$pref(grefto,.ato,.vsto) i nto=-1 q 0
+ s nfr=$$pref(greffr,.afr,.vsfr) i nfr=-1 q 0
  s offset=$$binit(.buffer)
- f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
+ s offset=$$adddata(.buffer,offset,$g(ato(0)),3,1)
+ f n=1:1 q:'$d(ato(n))  s offset=$$adddata(.buffer,offset,$g(ato(n,0)),1,1)
+ s offset=$$adddata(.buffer,offset,$g(afr(0)),3,1)
+ f n=1:1 q:'$d(afr(n))  s offset=$$adddata(.buffer,offset,$g(afr(n,0)),1,1)
  s offset=$$bterm(.buffer,offset,20)
  s result=$$req(.fd,.buffer)
  q result
  ;
-function(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+mergetoloc(fd,grefloc,grefrem)
+ n n,d,offset,buffer,nto,nfr,nfr1,ato,afr,afr1,vsto,vsto1,vsfr,vsfr1,args,def,data,ok,result
+ s result=""
+ i $$tref(grefloc)=-1 q 0
+ i $$tref(grefrem)=-1 q 0
+ s nto=$$pref(grefloc,.ato,.vsto) i nto=-1 q 0
+ s nfr=$$pref(grefrem,.afr,.vsfr) i nfr=-1 q 0
+ s args=""""_afr(0)_"""" i nfr s args=args_","_vsfr
+ s @("def=$$data(.fd,"_args_")") i (def#10) s @("data=$$get(.fd,"_args_")") s @(grefloc_"=data") ;s @(ato(0)_$s(nto:"("_vsto_")",1:"")_"=data")
+ s ok=1 f  s grefrem=$$nnoded(.fd,grefrem,.data) d  i 'ok q
+ . i grefrem="" s ok=0 q
+ . s nfr1=$$pref(grefrem,.afr1,.vsfr1) i nfr1=-1 s ok=0 q
+ . f n=1:1:nfr i $g(afr1(n))'=$g(afr(n)) s ok=0 q
+ . i 'ok q
+ . s vsto1=vsto f n=nfr+1:1:nfr1 s vsto1=vsto1_","_$g(afr1(n))
+ . s @(ato(0)_"("_vsto1_")=data")
+ . q
+ q result
+ ;
+mergetorem(fd,grefrem,grefloc)
+ n n,d,offset,buffer,nto,nfr,nfr1,ato,afr,afr1,vsto,vsto1,vsfr,vsfr1,args,def,data,ok,rc,result
+ s result=""
+ i $$tref(grefrem)=-1 q 0
+ i $$tref(grefloc)=-1 q 0
+ s nto=$$pref(grefrem,.ato,.vsto) i nto=-1 q 0
+ s nfr=$$pref(grefloc,.afr,.vsfr) i nfr=-1 q 0
+ s args=""""_ato(0)_"""" i nto s args=args_","_vsto
+ s def=$d(@grefloc) i (def#10) s data=$g(@grefloc) s @("rc=$$set(.fd,"_args_",data)")
+ s ok=1 f  s grefloc=$q(@grefloc) d  i 'ok q
+ . i grefloc="" s ok=0 q
+ . s data=$g(@grefloc)
+ . s nfr1=$$pref(grefloc,.afr1,.vsfr1) i nfr1=-1 s ok=0 q
+ . f n=1:1:nfr i $g(afr1(n))'=$g(afr(n)) s ok=0 q
+ . i 'ok q
+ . s vsto1=vsto f n=nfr+1:1:nfr1 s vsto1=vsto1_","_$g(afr1(n))
+ . s @("rc=$$set(.fd,"""_ato(0)_""","_vsto1_",data)")
+ . q
+ q result
+ ;
+function(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -228,7 +317,7 @@ function(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-classmethod(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+classmethod(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -236,7 +325,7 @@ classmethod(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-getproperty(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+getproperty(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -244,7 +333,7 @@ getproperty(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-setproperty(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+setproperty(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -252,7 +341,7 @@ setproperty(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-method(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+method(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -260,7 +349,7 @@ method(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
  s result=$$req(.fd,.buffer)
  q result
  ;
-closeobject(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9)
+closeobject(fd,d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,d20,d21)
  n n,d,offset,buffer,result
  s offset=$$binit(.buffer)
  f n=0:1 s d="d"_n q:'$d(@d)  s offset=$$adddata(.buffer,offset,@d,1,1)
@@ -331,6 +420,26 @@ esize256(dsize) ; create little-endian 32-bit unsigned integer from M decimal
  ;
 dsize256(esize) ; convert little-endian 32-bit unsigned integer to M decimal
  q ($a(esize,4)*(256**3))+($a(esize,3)*(256**2))+($a(esize,2)*256)+$a(esize,1)
+ ;
+pref(gref,ar,sref) ; parse global reference
+ n n,n1,n2,gname,ref,sub,com
+ k ar
+ s sref=""
+ s gname=$p(gref,"(",1) i gname="" q -1
+ i gref'["(",gref'[")" s ar(0)=gname q 0
+ i $e(gref,$l(gref))'=")" q -1
+ s ref=$p(gref,"(",2,9999),ref=$e(ref,1,$l(ref)-1)
+ s ar(0)=gname
+ s n=0,n1=1,com="" f n2=1:1 s sub=$p(ref,",",n1,n2) q:sub=""  i ($l(sub,"""")#2) s n=n+1,(ar(n),ar(n,0))=sub,sref=sref_com_sub,com=",",n1=n2+1 i $e(sub,1)="""" s @("ar(n,0)="_sub)
+ q n
+ ;
+tref(gref) ; test a global reference for structural correctness
+ n def
+ s $zt="trefe^%zmgsic" ; new $ztrap set $ztrap="zgoto "_$zlevel_":trefe^%zmgsic"
+ s def=$d(@gref)
+ q def
+trefe ; error
+ q -1
  ;
 isydb() ; See if this is YottaDB
  n zv
@@ -444,6 +553,13 @@ test ; A simple test - reads and writes global ^CM
  s x="" f  s x=$$previous(.fd,"^CM",x) q:x=""  w !,x," = ",$$get(.fd,"^CM",x)
  w !,"increment (0.5) ..."
  s x="" f n=1:1:10 s x=$$increment(.fd,"^CM",0.5) w !,x
+ w !,"maximum subscripts test ..."
+ f n=1:1:5 s x=$$set(.fd,"^CM","x",2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,n,"data record# "_n)
+ s x="" f  s x=$$order(.fd,"^CM","x",2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,x) q:x=""  d
+ . w !,"$data=",$$data(.fd,"^CM","x",2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,x)
+ . w " ",x," = ",$$get(.fd,"^CM","x",2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,x)
+ . s x=$$kill(.fd,"^CM","x",2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,x)
+ . q
  s x=$$function(.fd,"fun^cmfun","abc")
  w !,"function: ",x
  s x=$$classmethod(.fd,"%Library.Date","DisplayToLogical","10/10/2019")
@@ -465,6 +581,7 @@ test ; A simple test - reads and writes global ^CM
  s x=$$close(.fd)
  q
  ;
+
 
 
 
