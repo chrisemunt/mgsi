@@ -45,7 +45,7 @@ Change to your development Namespace and check the installation:
        do ^%zmgsic
 
        M/Gateway Developments Ltd - Service Integration Gateway Client
-       Version: 1.0; Revision 1 (1 December 2022)
+       Version: 1.0; Revision 3 (5 April 2023)
 
 ### YottaDB
 
@@ -73,7 +73,7 @@ Link the **zmgsic** routine and check the installation:
        do ^%zmgsic
 
        M/Gateway Developments Ltd - Service Integration Gateway Client
-       Version: 1.0; Revision 1 (1 December 2022)
+       Version: 1.0; Revision 3 (5 April 2023)
 
 
 Note that the version of **zmgsic** is successfully displayed.
