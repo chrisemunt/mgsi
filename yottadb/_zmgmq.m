@@ -3,7 +3,7 @@
  ;  ----------------------------------------------------------------------------
  ;  | %zmgsi                                                                   |
  ;  | Author: Chris Munt cmunt@mgateway.com, chris.e.munt@gmail.com            |
- ;  | Copyright (c) 2016-2022 M/Gateway Developments Ltd,                      |
+ ;  | Copyright (c) 2016-2022 MGateway Ltd                                     |
  ;  | Surrey UK.                                                               |
  ;  | All rights reserved.                                                     |
  ;  |                                                                          |
@@ -37,7 +37,7 @@ v() ; version and date
 vers ; version information
  n v
  s v=$$v()
- w !,"M/Gateway Developments Ltd - Message Queue Manager"
+ w !,"MGateway Ltd - Message Queue Manager"
  w !,"Version: "_$p(v,".",1,2)_"; Revision "_$p(v,".",3)_" ("_$p(v,".",4)_")"
  w !
  q
