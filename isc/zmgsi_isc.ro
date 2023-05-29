@@ -1,12 +1,12 @@
 Cache for Windows^INT^zmgsi^~Format=Cache.S~^RAW
-%RO on 10 Feb 2023 01:00 AM
-%zmgsi^INT^1^66515,62266.0^0
+%RO on 27 May 2023 01:00 AM
+%zmgsi^INT^1^66621,55174.0^0
 %zmgsi ;(CM) Service Integration - Core Server
  ;
  ;  ----------------------------------------------------------------------------
  ;  | %zmgsi                                                                   |
  ;  | Author: Chris Munt cmunt@mgateway.com, chris.e.munt@gmail.com            |
- ;  | Copyright (c) 2016-2023 M/Gateway Developments Ltd,                      |
+ ;  | Copyright (c) 2016-2023 MGateway Ltd                                     |
  ;  | Surrey UK.                                                               |
  ;  | All rights reserved.                                                     |
  ;  |                                                                          |
@@ -256,13 +256,13 @@ ylink ; link all routines
  q
  ;
 
-%zmgsis^INT^1^66515,62266.0^0
+%zmgsis^INT^1^66621,55174.0^0
 %zmgsis ;(CM) Service Integration - Child Process
  ;
  ;  ----------------------------------------------------------------------------
  ;  | %zmgsis                                                                  |
  ;  | Author: Chris Munt cmunt@mgateway.com, chris.e.munt@gmail.com            |
- ;  | Copyright (c) 2016-2023 M/Gateway Developments Ltd,                      |
+ ;  | Copyright (c) 2016-2023 MGateway Ltd                                     |
  ;  | Surrey UK.                                                               |
  ;  | All rights reserved.                                                     |
  ;  |                                                                          |
@@ -336,7 +336,7 @@ v() ; version and date
 vers ; version information
  n v
  s v=$$v()
- w !,"M/Gateway Developments Ltd - Service Integration Gateway"
+ w !,"MGateway Ltd - Service Integration Gateway"
  w !,"Version: "_$p(v,".",1,2)_"; Revision "_$p(v,".",3)_" ("_$p(v,".",4)_")"
  w !
  q
