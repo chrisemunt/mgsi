@@ -1,11 +1,11 @@
 # mgsi
 
-M/Gateway Service Integration Gateway (**SIG**) for InterSystems **Cache/IRIS** and **YottaDB**.
+MGateway Service Integration Gateway (**SIG**) for InterSystems **Cache/IRIS** and **YottaDB**.
 
 Chris Munt <cmunt@mgateway.com>  
-3 February 2023, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
+27 May 2023, MGateway Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
-* Current Release: Version: 3.1; Revision 102a (21 December 2020).
+* Current Release: Version: 3.1; Revision 103 (27 May 2023).
 * SuperServer (%zmgsi routines) Release: Version: 4.5; Revision 28 (3 February 2023).
 * [Release Notes](#RelNotes) can be found at the end of this document.
 
@@ -23,7 +23,7 @@ Contents
 
 ## <a name="Overview"></a> Overview
 
-The M/Gateway Service Integration Gateway (**SIG**) is an Open Source network-based service developed for InterSystems **Cache/IRIS** and the **YottaDB** Database Servers.  It will also work with the **GT.M** database and other **M-like** Databases Servers.  Its core function is to manage connectivity, process and resource pooling for **M-like** DB Servers.  The pooled resources can be used by any of the client-facing technologies in this product series (for example **mg\_php** and **mg\_go** etc ...).
+The MGateway Service Integration Gateway (**SIG**) is an Open Source network-based service developed for InterSystems **Cache/IRIS** and the **YottaDB** Database Servers.  It will also work with the **GT.M** database and other **M-like** Databases Servers.  Its core function is to manage connectivity, process and resource pooling for **M-like** DB Servers.  The pooled resources can be used by any of the client-facing technologies in this product series (for example **mg\_php** and **mg\_go** etc ...).
 
 An M-based client to the **SIG** is included (**%zmgsic**).  This module provides easy access to global data, functions and InterSystems classes held on remote systems.  Documentation for this component can be found [here](./mclient.md).  The client and server do not need to be of the same type.  You can use **%zmgsic** on InterSystems **Cache/IRIS** to access data on **YottaDB** and _vice versa_. 
 
@@ -31,7 +31,7 @@ Also included in this package is a message/work queue manager for **YottaDB** an
 
 There are two parts to a complete SIG installation:
 
-* The **DB Superserver**.  This component resides inside the DB Server and is independently required by other M/Gateway Open Source products.
+* The **DB Superserver**.  This component resides inside the DB Server and is independently required by other MGateway Open Source products.
 * The **SIG** itself.  This is effectively a client to the DB Superserver.
 
 
@@ -57,8 +57,8 @@ Change to your development Namespace and check the installation:
 
        do ^%zmgsi
 
-       M/Gateway Developments Ltd - Service Integration Gateway
-       Version: 4.4; Revision 25 (2 September 2021)
+       MGateway Ltd - Service Integration Gateway
+       Version: 4.5; Revision 28 (3 February 2023)
 
 ### YottaDB
 
@@ -85,8 +85,8 @@ Link all the **zmgsi** routines and check the installation:
 
        do ^%zmgsi
 
-       M/Gateway Developments Ltd - Service Integration Gateway
-       Version: 4.4; Revision 25 (2 September 2021)
+       MGateway Ltd - Service Integration Gateway
+       Version: 4.5; Revision 28 (3 February 2023)
 
 
 Note that the version of **zmgsi** is successfully displayed.
@@ -256,7 +256,7 @@ The **zmgsi** server-side code will write to the following global:
 
 ## <a name="License"></a> License
 
-Copyright (c) 2018-2023 M/Gateway Developments Ltd,
+Copyright (c) 2018-2023 MGateway Ltd,
 Surrey UK.                                                      
 All rights reserved.
  
@@ -345,3 +345,7 @@ Unless required by applicable law or agreed to in writing, software distributed 
 ### v3.1.102a; Superserver v4.5.28 (3 February 2023)
 
 * Allow the initial worker initialization message for the DBX protocol to be resent to an open/active connection.  This change was made primarily to allow the M client to seamlessly reconnect to an existing (open) connection to the Superserver.
+
+### v3.1.103; Superserver v4.5.28 27 May 2023)
+
+* Documentation update.

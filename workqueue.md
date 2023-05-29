@@ -1,9 +1,9 @@
 # %zmgmq
 
-M/Gateway Message Queue Manager for **YottaDB** and InterSystems **Cache/IRIS**.
+MGateway Message Queue Manager for **YottaDB** and InterSystems **Cache/IRIS**.
 
 Chris Munt <cmunt@mgateway.com>  
-7 March 2022, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
+7 March 2022, MGateway Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
 * Current Release: Version: 1.0; Revision 2 (17 March 2022).
 * [Release Notes](#RelNotes) can be found at the end of this document.
@@ -20,7 +20,7 @@ Contents
 
 ## <a name="Overview"></a> Overview
 
-The M/Gateway **Message Queue Manager** (**MQM**) is an Open Source solution for **YottaDB** and InterSystems **Cache/IRIS**.  The idea behind this module is a fixed set of worker processes running in M that are dedicated to performing specific tasks.  Clients (other M applications) can submit tasks to the Message Queue and either wait for a response to be sent back or simply submit a task to be completed by the **Message Queue Manager** asynchronously.
+The MGateway **Message Queue Manager** (**MQM**) is an Open Source solution for **YottaDB** and InterSystems **Cache/IRIS**.  The idea behind this module is a fixed set of worker processes running in M that are dedicated to performing specific tasks.  Clients (other M applications) can submit tasks to the Message Queue and either wait for a response to be sent back or simply submit a task to be completed by the **Message Queue Manager** asynchronously.
 
 A likely use case is a set of worker processes that are dedicated to interfacing to an external system.  For example, an external database.  Rather than each M application connecting to, and disconnecting from, the remote resource the work can instead be performed, and the complexity of interfacing with the external resource, handled by the dedicated pool of worker processes.
 
@@ -46,7 +46,7 @@ Change to your development Namespace and check the installation:
 
        do ^%zmgmq
 
-       M/Gateway Developments Ltd - Message Queue Manager
+       MGateway Ltd - Message Queue Manager
        Version: 1.0; Revision 2 (17 March 2022)
 
 ### YottaDB
@@ -74,7 +74,7 @@ Link the **zmgmq** routines and check the installation:
 
        do ^%zmgmg
 
-       M/Gateway Developments Ltd - Message Queue Manager
+       MGateway Ltd - Message Queue Manager
        Version: 1.0; Revision 2 (17 March 2022)
 
 
@@ -207,7 +207,7 @@ The **zmgmq** server-side code will write to the following global:
 
 ## <a name="License"></a> License
 
-Copyright (c) 2018-2022 M/Gateway Developments Ltd,
+Copyright (c) 2018-2022 MGateway Ltd,
 Surrey UK.                                                      
 All rights reserved.
  

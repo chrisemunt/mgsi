@@ -1,9 +1,9 @@
 # mclient
 
-M/Gateway M client to the Service Integration Gateway (**SIG**)
+MGateway M client to the Service Integration Gateway (**SIG**)
 
 Chris Munt <cmunt@mgateway.com>  
-5 April 2023, M/Gateway Developments Ltd [http://www.mgateway.com](http://www.mgateway.com)
+24 May 2023, MGateway Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
 Contents
 
@@ -20,7 +20,7 @@ Contents
 
 ## <a name="overview">Overview</a>
 
-The M/Gateway **SIG M Client (%zmgsic)** is an Open Source solution for **YottaDB** and InterSystems **Cache/IRIS**.  It provides remote access to data, functions and InterSystems classes.  The **SIG** (or superserver) must be running on the target remote system.  The remote system can be of the same type as the client or different.  In other words, **YottaDB** clients can access data and functionality on remote InterSystems **Cache/IRIS** systems and _vice versa_.
+The MGateway **SIG M Client (%zmgsic)** is an Open Source solution for **YottaDB** and InterSystems **Cache/IRIS**.  It provides remote access to data, functions and InterSystems classes.  The **SIG** (or superserver) must be running on the target remote system.  The remote system can be of the same type as the client or different.  In other words, **YottaDB** clients can access data and functionality on remote InterSystems **Cache/IRIS** systems and _vice versa_.
 
 ## <a name="prereq">Prerequisites</a>
 
@@ -44,8 +44,8 @@ Change to your development Namespace and check the installation:
 
        do ^%zmgsic
 
-       M/Gateway Developments Ltd - Service Integration Gateway Client
-       Version: 1.0; Revision 3 (5 April 2023)
+       MGateway Ltd - Service Integration Gateway Client
+       Version: 1.1; Revision 4 (24 May 2023)
 
 ### YottaDB
 
@@ -72,8 +72,8 @@ Link the **zmgsic** routine and check the installation:
 
        do ^%zmgsic
 
-       M/Gateway Developments Ltd - Service Integration Gateway Client
-       Version: 1.0; Revision 3 (5 April 2023)
+       MGateway Ltd - Service Integration Gateway Client
+       Version: 1.1; Revision 4 (24 May 2023)
 
 
 Note that the version of **zmgsic** is successfully displayed.
@@ -401,7 +401,7 @@ Calculate person's age at a particular date:
 
 ## <a name="license">License</a>
 
-Copyright (c) 2021-2023 M/Gateway Developments Ltd,
+Copyright (c) 2021-2023 MGateway Ltd,
 Surrey UK.                                                      
 All rights reserved.
  
@@ -436,3 +436,7 @@ Unless required by applicable law or agreed to in writing, software distributed 
 	* nnoded(): Get next global node and associated data.
 	* pnode(): Get previous global node.
 	* pnoded(): Get previous global node and associated data.
+
+### v1.1.4 (24 May 2023)
+
+* Introduce support for Unicode characters
