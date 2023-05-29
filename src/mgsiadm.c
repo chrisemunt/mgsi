@@ -4,7 +4,7 @@
    | Description: Service Integration Gateway                                 |
    | Author:      Chris Munt cmunt@mgateway.com                               |
    |                         chris.e.munt@gmail.com                           |
-   | Copyright (c) 2002-2020 M/Gateway Developments Ltd,                      |
+   | Copyright (c) 2002-2023 MGateway Ltd                                     |
    | Surrey UK.                                                               |
    | All rights reserved.                                                     |
    |                                                                          |
@@ -320,14 +320,14 @@ __try {
 
       /* CM0051 */
 /*
-      mg_log_event(p_smdata->username, "M/Gateway SIG Configuration: Username");
-      mg_log_event(p_smdata->pw1, "M/Gateway SIG Configuration: PW1");
-      mg_log_event(p_smdata->pw2, "M/Gateway SIG Configuration: PW2");
+      mg_log_event(p_smdata->username, "MGateway SIG Configuration: Username");
+      mg_log_event(p_smdata->pw1, "MGateway SIG Configuration: PW1");
+      mg_log_event(p_smdata->pw2, "MGateway SIG Configuration: PW2");
 */
       len = mg_get_config((char *) p_smdata->config_section, (char *) MG_P_PASSWORD, "", encoded_pwd, 8190, config_file);
       mg_decode_password((char *) encoded_pwd, (char *) old_pwd, 2);
 /*
-      mg_log_event(old_pwd, "M/Gateway SIG Configuration: DECODED PWD");
+      mg_log_event(old_pwd, "MGateway SIG Configuration: DECODED PWD");
 */
       if (len && T_STRSTR(p_smdata->pw1, "       ") && T_STRSTR(p_smdata->pw2, "       ")) {
          if (T_STRLEN(p_smdata->username)) {
@@ -1642,7 +1642,7 @@ __try {
       T_SPRINTF(buffer1, "<td bgcolor=\"%s\" align=left>Copyright:</td>\r\n", MG_SM_CELL_BGCOLOR);
       mg_client_write_string(p_request, buffer1);
 
-      T_SPRINTF(buffer1, "<TD bgcolor=\"%s\"><A HREF=\"http://www.mgateway.com\" TARGET=mgateway_window><font FACE=\"Arial, Helvetica, sansserif\" size=\"3\" color=\"#000000\">M/Gateway Developments Ltd.</font></A></TD>\r\n", MG_SM_CELL_BGCOLOR);
+      T_SPRINTF(buffer1, "<TD bgcolor=\"%s\"><A HREF=\"http://www.mgateway.com\" TARGET=mgateway_window><font FACE=\"Arial, Helvetica, sansserif\" size=\"3\" color=\"#000000\">MGateway Ltd.</font></A></TD>\r\n", MG_SM_CELL_BGCOLOR);
 
       mg_client_write_string(p_request, buffer1);
 
@@ -2072,7 +2072,7 @@ __try {
    mg_client_write_string(p_request, "<td valign=\"top\" bgcolor=\"#000000\" style=\"border-color:#000000\" height=\"10\">\r\n");
    mg_client_write_string(p_request, "<font face=\"Sans-serif\" size=\"1\" color=\"#fffcf5\">\r\n");
 
-   T_SPRINTF(buffer, "&copy; 2004-%s M/Gateway Developments Ltd All Rights Reserved. &nbsp;&nbsp;&nbsp;&nbsp;\r\n", yearstr);
+   T_SPRINTF(buffer, "&copy; 2004-%s MGateway Ltd All Rights Reserved. &nbsp;&nbsp;&nbsp;&nbsp;\r\n", yearstr);
    mg_client_write_string(p_request, buffer);
 
    mg_client_write_string(p_request, "<a href=\"http://www.mgateway.com\" style=\"color:#ffffff;\">http://www.mgateway.com</a>\r\n");

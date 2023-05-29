@@ -4,7 +4,7 @@
    | Description: Service Integration Gateway                                 |
    | Author:      Chris Munt cmunt@mgateway.com                               |
    |                         chris.e.munt@gmail.com                           |
-   | Copyright (c) 2002-2020 M/Gateway Developments Ltd,                      |
+   | Copyright (c) 2002-2023 MGateway Ltd                                     |
    | Surrey UK.                                                               |
    | All rights reserved.                                                     |
    |                                                                          |

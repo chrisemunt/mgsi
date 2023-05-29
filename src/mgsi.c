@@ -4,7 +4,7 @@
    | Description: Service Integration Gateway                                 |
    | Author:      Chris Munt cmunt@mgateway.com                               |
    |                         chris.e.munt@gmail.com                           |
-   | Copyright (c) 2002-2020 M/Gateway Developments Ltd,                      |
+   | Copyright (c) 2002-2023 MGateway Ltd                                     |
    | Surrey UK.                                                               |
    | All rights reserved.                                                     |
    |                                                                          |
@@ -255,7 +255,7 @@ static char             mg_winservice_name[]    = "Mgwsi";
 static char             mg_winservice_name[]    = "mgsi";
 #endif
 LPCTSTR                 mg_winservice_desc      = "Service Integration Gateway";
-LPCTSTR                 mg_winservice_desc_ex   = "M/Gateway Development's Service Integration Gateway.  Mediates between software components providing services to applications.";
+LPCTSTR                 mg_winservice_desc_ex   = "MGateway Ltd.  Service Integration Gateway.  Mediates between software components providing services to applications.";
 SERVICE_STATUS          mg_winservice_status; 
 SERVICE_STATUS_HANDLE   mg_winservice_status_handle;
 #endif
@@ -914,7 +914,7 @@ int main_ex(int argc, char *argv[])
 #endif
       }
       if (!mg_main.silent) {
-         printf("\nM/Gateway Developments Ltd - Service Integration Gateway");
+         printf("\nMGateway Ltd - Service Integration Gateway");
          sprintf(obuffer, "\n\n   Version %s (Created: %s)", MG_VERSION, MG_VERSION_CREATED);
 
          printf(obuffer);
@@ -1255,11 +1255,11 @@ __try {
    if (!p_mg_main->silent) {
 
 #if _WIN32
-      sprintf(obuffer, "M/Gateway Developments Ltd. - Service Integration Gateway: Version %s", MG_VERSION_DISPLAY);
+      sprintf(obuffer, "MGateway Ltd. - Service Integration Gateway: Version %s", MG_VERSION_DISPLAY);
       SetConsoleTitle(obuffer);
 #endif
 
-      printf("\nM/Gateway Developments Ltd. - Service Integration Gateway");
+      printf("\nMGateway Ltd. - Service Integration Gateway");
       sprintf(obuffer, "\n\n   Version %s (Created: %s)", MG_VERSION, MG_VERSION_CREATED);
       printf("%s", obuffer);
 

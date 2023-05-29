@@ -1,4 +1,4 @@
-# UNIX makefile for M/Gateway Service Integration Gateway (mgsi)
+# UNIX makefile for MGateway Service Integration Gateway (mgsi)
 #
 # Build:
 # make Makefile

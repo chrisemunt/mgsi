@@ -4,7 +4,7 @@
    | Description: Service Integration Gateway                                 |
    | Author:      Chris Munt cmunt@mgateway.com                               |
    |                         chris.e.munt@gmail.com                           |
-   | Copyright (c) 2002-2020 M/Gateway Developments Ltd,                      |
+   | Copyright (c) 2002-2023 MGateway Ltd                                     |
    | Surrey UK.                                                               |
    | All rights reserved.                                                     |
    |                                                                          |
@@ -37,20 +37,20 @@
 #if defined(MG_MGWSI)
 #define MAJORVERSION             2
 #define MINORVERSION             3
-#define BUILDNUMBER              101
+#define BUILDNUMBER              103
 #define PATCHNUMBER              0
-#define PRODUCTVERSIONSTR        "2.3.101.0"
+#define PRODUCTVERSIONSTR        "2.3.103.0"
 #define FILEVERSIONSTR           PRODUCTVERSIONSTR
-#define MG_VERSION              "2.3.101"
+#define MG_VERSION              "2.3.103"
 #define MG_VERSION_DISPLAY      "2.3"
 #else
 #define MAJORVERSION             3
 #define MINORVERSION             1
-#define BUILDNUMBER              102
+#define BUILDNUMBER              103
 #define PATCHNUMBER              0
-#define PRODUCTVERSIONSTR        "3.1.102.0"
+#define PRODUCTVERSIONSTR        "3.1.103.0"
 #define FILEVERSIONSTR           PRODUCTVERSIONSTR
-#define MG_VERSION              "3.1.102"
+#define MG_VERSION              "3.1.103"
 #define MG_VERSION_DISPLAY      "3.1"
 #endif
 
@@ -135,7 +135,12 @@
 #define MG_VERSION_CREATED      "18 September 2014"
 */
 
+/*
+3.1.102
 #define MG_VERSION_CREATED      "11 February 2020"
+*/
+
+#define MG_VERSION_CREATED      "27 May 2023"
 
 
 #if defined(_WIN32)              /* Windows */

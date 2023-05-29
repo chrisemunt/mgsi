@@ -4,7 +4,7 @@
    | Description: Service Integration Gateway                                 |
    | Author:      Chris Munt cmunt@mgateway.com                               |
    |                         chris.e.munt@gmail.com                           |
-   | Copyright (c) 2002-2020 M/Gateway Developments Ltd,                      |
+   | Copyright (c) 2002-2023 MGateway Ltd                                     |
    | Surrey UK.                                                               |
    | All rights reserved.                                                     |
    |                                                                          |
@@ -1360,7 +1360,7 @@ __try {
             DataIn.cbData = cbDataInput;
 
             if (core_data.os_version < MG_WINVER_XP)
-               truth = mg_CryptProtectData(&DataIn, L"The M/Gateway SIG", NULL, NULL, NULL, CRYPTPROTECT_LOCAL_MACHINE|CRYPTPROTECT_UI_FORBIDDEN, &DataOut);
+               truth = mg_CryptProtectData(&DataIn, L"The MGateway SIG", NULL, NULL, NULL, CRYPTPROTECT_LOCAL_MACHINE|CRYPTPROTECT_UI_FORBIDDEN, &DataOut);
             else
                truth = mg_CryptProtectData(&DataIn, NULL, NULL, NULL, NULL, CRYPTPROTECT_LOCAL_MACHINE|CRYPTPROTECT_UI_FORBIDDEN, &DataOut);
 

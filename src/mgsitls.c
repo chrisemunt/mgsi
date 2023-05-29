@@ -4,7 +4,7 @@
    | Description: Service Integration Gateway                                 |
    | Author:      Chris Munt cmunt@mgateway.com                               |
    |                         chris.e.munt@gmail.com                           |
-   | Copyright (c) 2002-2020 M/Gateway Developments Ltd,                      |
+   | Copyright (c) 2002-2023 MGateway Ltd                                     |
    | Surrey UK.                                                               |
    | All rights reserved.                                                     |
    |                                                                          |
@@ -50,7 +50,7 @@ __try {
       return 0;
 
    if (!core_data.ssp_port || core_data.ssp_port == core_data.sig_port) {
-      T_SPRINTF(buf, "The SSL Proxy will operate through the TCP port of the main M/Gateway SIG service (%d)", core_data.sig_port);
+      T_SPRINTF(buf, "The SSL Proxy will operate through the TCP port of the main MGateway SIG service (%d)", core_data.sig_port);
       mg_log_event(buf, "SSL Proxy Information");
       return 0;
    }

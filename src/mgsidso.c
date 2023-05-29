@@ -4,7 +4,7 @@
    | Description: Service Integration Gateway                                 |
    | Author:      Chris Munt cmunt@mgateway.com                               |
    |                         chris.e.munt@gmail.com                           |
-   | Copyright (c) 2002-2020 M/Gateway Developments Ltd,                      |
+   | Copyright (c) 2002-2023 MGateway Ltd                                     |
    | Surrey UK.                                                               |
    | All rights reserved.                                                     |
    |                                                                          |
@@ -826,7 +826,7 @@ __try {
    vers = db_version(&major, &minor, &patch);
    if (vers) {
       T_SPRINTF(buffer, "The Berkeley Database (BDB) library is incorporated in (or statically linked to) this distribution - Version %s.", vers);
-      mg_log_event(buffer, "M/Gateway SIG: Initialization");
+      mg_log_event(buffer, "MGateway SIG: Initialization");
    }
 
 #endif
@@ -994,17 +994,17 @@ __try {
 
             mg_mgmq_version(vers);
             T_SPRINTF(buffer, "The IBM MQ %s library (%s) is loaded - Version: %s.", mqc ? "CLIENT" : "SERVER", lib, vers);
-            mg_log_event(buffer, "M/Gateway SIG: Initialization");
+            mg_log_event(buffer, "MGateway SIG: Initialization");
       }
       else {
          mg_dso_unload((MGDSO *) &(mg_mqlib.mgdso));
          T_SPRINTF(buffer, "Information: The IBM MQ library (%s) found on this system is not usable", lib);
-         mg_log_event(buffer, "M/Gateway SIG: Initialization");
+         mg_log_event(buffer, "MGateway SIG: Initialization");
       }
    }
    else {
       T_SPRINTF(buffer, "Information: The IBM MQ library is not present on this system");
-      mg_log_event(buffer, "M/Gateway SIG: Initialization");
+      mg_log_event(buffer, "MGateway SIG: Initialization");
    }
 
 #endif /* #ifdef MG_MQ_USE_DSO */
@@ -1015,7 +1015,7 @@ __try {
 
    mg_mgmq_version(vers);
    T_SPRINTF(buffer, "The IBM MQ library is incorporated in (or statically linked to) this distribution - Version %s.", vers);
-   mg_log_event(buffer, "M/Gateway SIG: Initialization");
+   mg_log_event(buffer, "MGateway SIG: Initialization");
 
 #endif /* #ifdef MG_MQ_STATIC_LINK */
 

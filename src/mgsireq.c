@@ -4,7 +4,7 @@
    | Description: Service Integration Gateway                                 |
    | Author:      Chris Munt cmunt@mgateway.com                               |
    |                         chris.e.munt@gmail.com                           |
-   | Copyright (c) 2002-2020 M/Gateway Developments Ltd,                      |
+   | Copyright (c) 2002-2023 MGateway Ltd                                     |
    | Surrey UK.                                                               |
    | All rights reserved.                                                     |
    |                                                                          |
@@ -441,7 +441,7 @@ mg_php_next_attempt:
 
    if ((errorcode = mg_get_connection(&chndle, &shndle, (char *) m_server_name, timeout, no_retry, context)) < 1) {
 
-      T_SPRINTF(obuffer, "%s M/Gateway SIG:ERROR: can't connect to the Server: Error Code# %d", MG_RECV_HEAD_ERROR, errorcode);
+      T_SPRINTF(obuffer, "%s MGateway SIG:ERROR: can't connect to the Server: Error Code# %d", MG_RECV_HEAD_ERROR, errorcode);
       mg_insert_error_size(obuffer);
 
       if (core_data.log_errors) {
@@ -593,7 +593,7 @@ mg_php_next_attempt:
          goto mg_php_next_attempt;
       }
 
-      T_SPRINTF(obuffer, "%sM/Gateway SIG:ERROR: can't dispatch request: %s Not Responding", MG_RECV_HEAD_ERROR, MG_DB_SERVER_TITLE);
+      T_SPRINTF(obuffer, "%sMGateway SIG:ERROR: can't dispatch request: %s Not Responding", MG_RECV_HEAD_ERROR, MG_DB_SERVER_TITLE);
       mg_insert_error_size(obuffer);
 
       if (core_data.log_errors) {
@@ -619,7 +619,7 @@ mg_php_next_attempt:
          sprintf(title, "MGSI successfully SENT the following message to the SERVER (%d Bytes)", rlen);
          mg_log_buffer((char *) ibuffer, rlen, title);
 */
-         sprintf(title, "M/Gateway SIG successfully SENT the following message to the SERVER (%ld Bytes)", p_debug->curr_size);
+         sprintf(title, "MGateway SIG successfully SENT the following message to the SERVER (%ld Bytes)", p_debug->curr_size);
          mg_log_buffer((char *) p_debug->p_buffer, p_debug->curr_size, title);
       }
 
@@ -655,7 +655,7 @@ mg_php_next_attempt:
 
          if (core_data.verbose) {
             char title[128];
-            sprintf(title, "M/Gateway SIG successfully RECEIVED the following data from the SERVER (%ld Bytes)", actual_size);
+            sprintf(title, "MGateway SIG successfully RECEIVED the following data from the SERVER (%ld Bytes)", actual_size);
             mg_log_buffer((char *) tbuffer + tbuffer_offset, actual_size, title);
          }
 
@@ -712,7 +712,7 @@ mg_php_next_attempt:
 
                   if (core_data.verbose) {
                      char title[128];
-                     sprintf(title, "M/Gateway SIG could not SEND the following data to the CLIENT (%ld Bytes)", actual_size);
+                     sprintf(title, "MGateway SIG could not SEND the following data to the CLIENT (%ld Bytes)", actual_size);
                      mg_log_buffer((char *) tbuffer + tbuffer_actual_offset, actual_size, title);
                   }
                   break;
@@ -721,7 +721,7 @@ mg_php_next_attempt:
 /*
                   if (core_data.verbose) {
                      char title[128];
-                     sprintf(title, "M/Gateway SIG successfully SENT the following data to the CLIENT (%d Bytes)", n);
+                     sprintf(title, "MGateway SIG successfully SENT the following data to the CLIENT (%d Bytes)", n);
                      mg_log_buffer((char *) tbuffer + (tbuffer_actual_offset + len), n, title);
                   }
 */
@@ -764,7 +764,7 @@ mg_php_next_attempt:
          goto mg_php_exit2;
       }
       else if (read_stat == MG_READ_ERROR || read_stat == MG_READ_TIMEOUT) {
-         T_SPRINTF(obuffer, "%sM/Gateway SIG:ERROR: Read Error: errorcode=%d; read_stat=%d; data=%s", MG_RECV_HEAD_ERROR, errorcode, read_stat, (char *) tbuffer);
+         T_SPRINTF(obuffer, "%sMGateway SIG:ERROR: Read Error: errorcode=%d; read_stat=%d; data=%s", MG_RECV_HEAD_ERROR, errorcode, read_stat, (char *) tbuffer);
          mg_insert_error_size(obuffer);
 
          if (core_data.log_errors) {
@@ -788,7 +788,7 @@ mg_php_next_attempt:
       else {
          if (core_data.verbose) {
             char title[128];
-            sprintf(title, "M/Gateway SIG successfully SENT the following data to the CLIENT (%ld Bytes)", p_debug->curr_size);
+            sprintf(title, "MGateway SIG successfully SENT the following data to the CLIENT (%ld Bytes)", p_debug->curr_size);
             mg_log_buffer((char *) p_debug->p_buffer, p_debug->curr_size, title);
          }
       }
@@ -1327,7 +1327,7 @@ __try {
    mg_ucase(method);
 
    if (!strcmp(method, "EXTCWSMQ")) {
-      mg_client_write_string(p_request, "M/Gateway Service Integration Gateway/1.1\r\nIBM IBM MQ LoopBack");
+      mg_client_write_string(p_request, "MGateway Service Integration Gateway/1.1\r\nIBM IBM MQ LoopBack");
       goto mg_http_exit2;
 
    }
@@ -1344,7 +1344,7 @@ __try {
    if (real_file) {
       fp = fopen(p_request->path_translated, "rb");
       if (!fp) {
-         mg_client_write_string(p_request, "HTTP/1.1 200 OK\r\nContent-type: text/html\r\nConnection: close\r\n\r\n<html>\r\n<head><title>Error</title></head>\r\n<body>\r\n<h2>M/Gateway SIG: Object does not exist</h2>\r\n</body>\r\n</html>\r\n");
+         mg_client_write_string(p_request, "HTTP/1.1 200 OK\r\nContent-type: text/html\r\nConnection: close\r\n\r\n<html>\r\n<head><title>Error</title></head>\r\n<body>\r\n<h2>MGateway SIG: Object does not exist</h2>\r\n</body>\r\n</html>\r\n");
          goto mg_http_exit2;
       }
 
@@ -2844,7 +2844,7 @@ mg_wsmq_next_request:
       if (!ok) {
 
          char buf[256];
-         sprintf(buf, "M/Gateway SIG: Security Alert: Illegal access from: %s", p_request->cli_addr);
+         sprintf(buf, "MGateway SIG: Security Alert: Illegal access from: %s", p_request->cli_addr);
 
          p = strstr(buffer, "\r\n\r\n");
          if (p)
@@ -3075,7 +3075,7 @@ mg_wsmq_next_request:
          }
       }
       else {
-         strcpy(p_mgmq->error, "M/Gateway SIG interface library to IBM MQ is not loaded");
+         strcpy(p_mgmq->error, "MGateway SIG interface library to IBM MQ is not loaded");
       }
    }
    else if (!strcmp(fun, "DISC")) {
@@ -3086,7 +3086,7 @@ mg_wsmq_next_request:
          }
       }
       else {
-         strcpy(p_mgmq->error, "M/Gateway SIG interface library to IBM MQ is not loaded");
+         strcpy(p_mgmq->error, "MGateway SIG interface library to IBM MQ is not loaded");
       }
    }
    else if (!strcmp(fun, "BEGIN")) {
@@ -3094,7 +3094,7 @@ mg_wsmq_next_request:
          mg_mgmq_begin(p_mgmq);
       }
       else {
-         strcpy(p_mgmq->error, "M/Gateway SIG interface library to IBM MQ is not loaded");
+         strcpy(p_mgmq->error, "MGateway SIG interface library to IBM MQ is not loaded");
       }
    }
    else if (!strcmp(fun, "BACK")) {
@@ -3102,7 +3102,7 @@ mg_wsmq_next_request:
          mg_mgmq_back(p_mgmq);
       }
       else {
-         strcpy(p_mgmq->error, "M/Gateway SIG interface library to IBM MQ is not loaded");
+         strcpy(p_mgmq->error, "MGateway SIG interface library to IBM MQ is not loaded");
       }
    }
    else if (!strcmp(fun, "CMIT")) {
@@ -3110,7 +3110,7 @@ mg_wsmq_next_request:
          mg_mgmq_cmit(p_mgmq);
       }
       else {
-         strcpy(p_mgmq->error, "M/Gateway SIG interface library to IBM MQ is not loaded");
+         strcpy(p_mgmq->error, "MGateway SIG interface library to IBM MQ is not loaded");
       }
    }
    else if (!strcmp(fun, "PUT")) {
@@ -3118,7 +3118,7 @@ mg_wsmq_next_request:
          mg_mgmq_put(p_mgmq);
       }
       else {
-         strcpy(p_mgmq->error, "M/Gateway SIG interface library to IBM MQ is not loaded");
+         strcpy(p_mgmq->error, "MGateway SIG interface library to IBM MQ is not loaded");
       }
    }
    else if (!strcmp(fun, "GET")) {
@@ -3135,7 +3135,7 @@ mg_wsmq_next_request:
             strcpy(p_mgmq->error, "Cannot allocate enough memory to deal with this request");
       }
       else {
-         strcpy(p_mgmq->error, "M/Gateway SIG interface library to IBM MQ is not loaded");
+         strcpy(p_mgmq->error, "MGateway SIG interface library to IBM MQ is not loaded");
       }
    }
    else if (!strcmp(fun, "REQ")) {
@@ -3152,7 +3152,7 @@ mg_wsmq_next_request:
 
       }
       else {
-         strcpy(p_mgmq->error, "M/Gateway SIG interface library to IBM MQ is not loaded");
+         strcpy(p_mgmq->error, "MGateway SIG interface library to IBM MQ is not loaded");
       }
    }
 
@@ -3529,16 +3529,16 @@ mg_wsmq_next_request:
       p_mgmq->r_buffer_len = 0;
       p_mgmq->r_buffer = mg_malloc(sizeof(char) * (p_mgmq->r_buffer_size), "mg_wsmq:4");
 
-      sprintf((char *) (p_mgmq->r_buffer + p_mgmq->r_buffer_offs), "M/Gateway SIG : IBM MQ loop back message: time: %s", timestr);
+      sprintf((char *) (p_mgmq->r_buffer + p_mgmq->r_buffer_offs), "MGateway SIG : IBM MQ loop back message: time: %s", timestr);
 
       p_mgmq->r_buffer_len = (unsigned long) strlen((char *) (p_mgmq->r_buffer + p_mgmq->r_buffer_offs));
    }
    else {
-      sprintf(p_mgmq->error, "M/Gateway SIG : Unrecognized request : %s", fun);
+      sprintf(p_mgmq->error, "MGateway SIG : Unrecognized request : %s", fun);
    }
 
    if (core_data.log_errors && strlen(p_mgmq->error)) {
-      mg_log_event(p_mgmq->error, "M/Gateway SIG : m_ibm_mq error condition");
+      mg_log_event(p_mgmq->error, "MGateway SIG : m_ibm_mq error condition");
    }
 
    sprintf(buffer, "0000000000x: 0\r\nerror: %s\r\ninfo: %s\r\nrecv_len: %lu\r\nr_code: %d\r\nr_type: %d\r\nrqm_name: %s\r\nrq_name: %s\r\nmsg_id: %s\r\ncorrel_id: %s\r\ngroup_id: %s\r\nmsg_seq_no: %ld\r\noffset: %ld\r\n\r\n", 

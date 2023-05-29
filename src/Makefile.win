@@ -1,4 +1,4 @@
-# Microsoft Windows makefile for M/Gateway Service Integration Gateway (mgsi.exe)
+# Microsoft Windows makefile for MGateway Service Integration Gateway (mgsi.exe)
 #
 # Build:
 # nmake -f Makefile.win
