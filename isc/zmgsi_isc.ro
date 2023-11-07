@@ -1,6 +1,6 @@
 Cache for Windows^INT^zmgsi^~Format=Cache.S~^RAW
-%RO on 27 May 2023 01:00 AM
-%zmgsi^INT^1^66621,55174.0^0
+%RO on 07 Nov 2023 01:00 AM
+%zmgsi^INT^1^66785,56281.0^0
 %zmgsi ;(CM) Service Integration - Core Server
  ;
  ;  ----------------------------------------------------------------------------
@@ -256,7 +256,7 @@ ylink ; link all routines
  q
  ;
 
-%zmgsis^INT^1^66621,55174.0^0
+%zmgsis^INT^1^66785,56281.0^0
 %zmgsis ;(CM) Service Integration - Child Process
  ;
  ;  ----------------------------------------------------------------------------
@@ -325,12 +325,14 @@ a0 d vers q
  ;                              Introduce an options mask to allow the type of requests serviced by the DB Superserver to be restricted)
  ; v4.5.27:   1 March     2022 (Add the network commands for lock and unlock (16, 19) and also the 'close oref' operation (45))
  ; v4.5.28:   3 February  2023 (Allow the initial worker initialization message for the DBX protocol to be resent to an open/active connection)
+ ; v4.5.29:   7 November  2023 (Correct a fault affecting the return of Unicode data to Node.js through SQL;
+ ;                              Improve and optimise wire protocol for mg-dbx-napi)
  ;
 v() ; version and date
  n v,r,d
  s v="4.5"
- s r=28
- s d="3 February 2023"
+ s r=29
+ s d="7 November 2023"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -1350,7 +1352,7 @@ dbxe ; Error
  ;
 dbxnet(%zcs,buf) ; new wire protocol for access to M
  n %oref,argc,cmnd,i,offset,ok,oref,pcmnd,port,pport,req,res,slen,sn,sort,type,uci,var,x,error
- s uci=$p(buf,"~",2)
+ s uci=$p(buf,"~",2),%zcs("protocol")=$p(buf,"~",3) ; v4.5.29
  i uci'="" d uci(uci)
  s %zcs("idle_timeout")=$p(buf,"~",3)+0
  s res=$zv
@@ -1393,7 +1395,7 @@ dbxnet2 ; request data received
  g dbxnet1
  ;
 dbxcmnd(%r,%oref,cmnd,res,utf16) ; Execute command
- n %io,buf,data,head,idx,len,obufsize,offset,rc,uci,data,sort,type,ok
+ n %io,buf,data,head,idx,len,obufsize,offset,rc,uci,data,sort,type,ok,key
  s $zt="dbxcmnde^%zmgsis" ; new $ztrap set $ztrap="zgoto "_$zlevel_":dbxcmnde^%zmgsis"
  s res=""
  ; check options mask
@@ -1414,7 +1416,7 @@ dbxcmnd(%r,%oref,cmnd,res,utf16) ; Execute command
  . s data="" i res'="" s data=$g(^(res))
  . s sort=1,type=1
  . i $g(utf16) s res=$$utf8out(res),data=$$utf8out(data),utf16=0
- . s res=$$esize256($l(res))_$c((sort*20)+type)_res_$$esize256($l(data))_$c((sort*20)+type)_data
+ . s res=$s($g(%zcs("protocol"))=2:$$esize256($l(data))_$c((sort*20)+type)_data_$$esize256($l(res))_$c((sort*20)+type)_res,1:$$esize256($l(res))_$c((sort*20)+type)_res_$$esize256($l(data))_$c((sort*20)+type)_data)
  . q
  i cmnd=14 s res=$o(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)),-1) q 0
  i cmnd=141 d  q 0
@@ -1422,7 +1424,7 @@ dbxcmnd(%r,%oref,cmnd,res,utf16) ; Execute command
  . s data="" i res'="" s data=$g(^(res))
  . s sort=1,type=1
  . i $g(utf16) s res=$$utf8out(res),data=$$utf8out(data),utf16=0
- . s res=$$esize256($l(res))_$c((sort*20)+type)_res_$$esize256($l(data))_$c((sort*20)+type)_data
+ . s res=$s($g(%zcs("protocol"))=2:$$esize256($l(data))_$c((sort*20)+type)_data_$$esize256($l(res))_$c((sort*20)+type)_res,1:$$esize256($l(res))_$c((sort*20)+type)_res_$$esize256($l(data))_$c((sort*20)+type)_data)
  . q
  i cmnd=15 k @($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)) s res=0 q 0
  i cmnd=16 s res=$d(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0))) q 0
@@ -1439,13 +1441,13 @@ dbxcmnd(%r,%oref,cmnd,res,utf16) ; Execute command
  . s r2=$$dbxglo(%r(i2))_$$dbxref(.%r,i2+1,%r,0)
  . m @r1=@r2
  . q
- i cmnd=21 s res=$q(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0))) q 0
+ i cmnd=21 s res=$q(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0))) s:$g(%zcs("protocol"))=2 res=$$empty()_$$gparse(.key,res)_$$eod() q 0
  i cmnd=211 d  q 0
  . s res=$q(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)))
  . s data="" i res'="" s data=$g(@res)
  . s sort=1,type=1
  . i $g(utf16) s res=$$utf8out(res),data=$$utf8out(data),utf16=0
- . s res=$$esize256($l(res))_$c((sort*20)+type)_res_$$esize256($l(data))_$c((sort*20)+type)_data
+ . s res=$s($g(%zcs("protocol"))=2:$$esize256($l(data))_$c((sort*20)+type)_data_$$gparse(.key,res)_$$eod(),1:$$esize256($l(res))_$c((sort*20)+type)_res_$$esize256($l(data))_$c((sort*20)+type)_data)
  . q
  i cmnd=22 s res=$q(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)),-1) q 0
  i cmnd=221 d  q 0
@@ -1453,9 +1455,9 @@ dbxcmnd(%r,%oref,cmnd,res,utf16) ; Execute command
  . s data="" i res'="" s data=$g(@res)
  . s sort=1,type=1
  . i $g(utf16) s res=$$utf8out(res),data=$$utf8out(data),utf16=0
- . s res=$$esize256($l(res))_$c((sort*20)+type)_res_$$esize256($l(data))_$c((sort*20)+type)_data
+ . s res=$s($g(%zcs("protocol"))=2:$$esize256($l(data))_$c((sort*20)+type)_data_$$esize256($l(res))_$c((sort*20)+type)_res,1:$$esize256($l(res))_$c((sort*20)+type)_res_$$esize256($l(data))_$c((sort*20)+type)_data)
  . q
- i cmnd=31 s res=$$dbxfun(.%r,"$$"_%r(1)_"("_$$dbxref(.%r,2,%r,1)_")") q 0
+ i cmnd=31 s res=$$dbxfun(.%r,"$$"_%r(1)_"("_$$dbxref(.%r,2,%r,1)_")",.utf16) q 0
  ; +not_ydb
  i cmnd=41 s res=$$dbxcmeth(.%r,$$dbxref(.%r,1,%r,1)) q 0
  i cmnd=42 s %r(1)=$g(%oref(%r(1))),@("res=$Property("_$$dbxref(.%r,1,%r,1)_")") q 0
@@ -1488,8 +1490,9 @@ dbxref(%r,strt,end,ctx) ; Generate reference
  i ctx=0,ref'="" s ref="("_ref_")"
  q ref
  ;
-dbxfun(%r,fun) ; Execute function
+dbxfun(%r,fun,utf16) ; Execute function
  n %oref,%uci,a,buf,cmnd,data,head,idx,len,obufsize,offset,oref,rc,res,sort,type,uci
+ i fun["$$sql",fun["^%zmgsis" s utf16=0 ; v4.5.29
  s @("res="_fun)
  q res
  ;
@@ -1695,7 +1698,7 @@ nvpair(%nv,%payload) ; parse content type: application/x-www-form-urlencoded
  ; . q
  ; -ydb
  ; +not_ydb
- f i=1:1:$l(%payload,"&") s x=$p(%payload,"&",i),name=$zcvt($p(x,"=",1),"I","URL"),value=$zcvt($p(x,"=",2,*),"I","URL") i name'="" d
+ f i=1:1:$l(%payload,"&") s x=$p(%payload,"&",i),name=$zcvt($p(x,"=",1),"I","URL"),value=$zcvt($p(x,"=",2,999999),"I","URL") i name'="" d
  . s def=$d(%nv(name))
  . i 'def s %nv(name)=value q
  . i def#10 s value1=$g(%nv(name)) k %nv(name) s %nv(name,1)=value1,%nv(name,2)=value q
@@ -1782,7 +1785,8 @@ odbcdt(x) ; Translate ODBC data type code to readable form
  ; s x=$$sqleisc^%zmgsis(0,"SELECT * FROM SQLUser.customer","")
 sqleisc(id,sql,params) ; Execute InterSystems SQL query
  s $zt="sqleisce^%zmgsis" ; new $ztrap set $ztrap="zgoto "_$zlevel_":sqleisce^%zmgsis"
- n %objlasterror,result,error,data,status,tsql,cn,col,type,dtype,rset,rn,n,sort,type
+ n %objlasterror,result,error,data,status,tsql,cn,col,type,dtype,rset,rn,n,sort,type,utf16
+ s utf16=0 i $g(params)["utf16" s utf16=1 ; v4.5.29
  k ^mgsqls($j,id)
  s result="0",error="",data="",cn=0
  ; +ydb
@@ -1814,7 +1818,8 @@ sqleisce1 ; SQL error
  ; s x=$$sqlemg^%zmgsis(0,"select * from patient","")
 sqlemg(id,sql,params) ; Execute MGSQL SQL query
  s $zt="sqlemge^%zmgsis" ; new $ztrap set $ztrap="zgoto "_$zlevel_":sqlemge^%zmgsis"
- n %zi,%zo,result,error,data,cn,n,col,type,ok,sort,type,v
+ n %zi,%zo,result,error,data,cn,n,col,type,ok,sort,type,v,utf16
+ s utf16=0 i $g(params)["utf16" s utf16=1 ; v4.5.29
  s result="0",error="",data="",cn=0
  s %zi("stmt")=id
  s v=$$sqlmgv() i v="" s error="MGSQL not installed" g sqlemge1
@@ -1848,7 +1853,8 @@ sqlmgve ; M error
  q ""
  ;
 sqlrow(id,rn,params) ; Get a row
- n result,data,n,sort,type
+ n result,data,n,sort,type,utf16
+ s utf16=0 i $g(params)["utf16" s utf16=1 ; v4.5.29
  s result=""
  s sort=1,type=1
  i params["-1" s:rn=0 rn="" s rn=$o(^mgsqls($j,id,0,rn),-1) i rn=0 s rn=""
@@ -1856,10 +1862,15 @@ sqlrow(id,rn,params) ; Get a row
  i rn="" q result
  i '$d(^mgsqls($j,id,0,rn)) q result
  s result=result_$$esize256($l(rn))_$c((sort*20)+type)_rn
- f n=1:1 q:'$d(^mgsqls($j,id,0,rn,n))  s data=$g(^mgsqls($j,id,0,rn,n)),result=result_$$esize256($l(data))_$c((sort*20)+type)_data
+ f n=1:1 q:'$d(^mgsqls($j,id,0,rn,n))  d
+ . s data=$g(^mgsqls($j,id,0,rn,n)) i utf16 s data=$$utf8out(data) ; v4.5.29
+ . s result=result_$$esize256($l(data))_$c((sort*20)+type)_data
+ . q
  q $$esize256($l(result))_result
  ;
 sqldel(id,params) ; Delete SQL result set
+ n utf16
+ s utf16=0 i $g(params)["utf16" s utf16=1 ; v4.5.29
  k ^mgsqls($j,id)
  q ""
  ;
@@ -1899,6 +1910,29 @@ head() ; format header record
 heade ; error
  q $$ddate(+$h)_" at "_$$dtime($p($h,",",2),0)_"~"_$g(%zcs("port"))_"~"_uci
  ;
+gparse(key,ref) ; parse global reference
+ n i,x,y,blk,dlm,sort,type
+ k key s key=0
+ s blk="",sort=1,type=1
+ s x=$p($e(ref,1,$l(ref)-1),"(",2,999999)
+ f i=1:1:$l(x,",") s x(i)=$p(x,",",i)
+ s y="",dlm="" f i=1:1 q:'$d(x(i))  d
+ . s y=y_dlm_x(i),dlm="," i ($l(y,"""")#2) s key=key+1,key(key)=y s:y["""" @("key(key)="_y) s y="",dlm="",blk=blk_$$esize256($l(key(key)))_$c((sort*20)+type)_key(key)
+ . q
+ q blk
+ ;
+empty() ; empty string marker
+ n sort,type
+ s sort=1,type=0
+ q $c(0,0,0,0,(sort*20)+type)
+ ;
+eod() ; eod of data marker
+ n sort,type
+ s sort=9,type=0
+ q $c(0,0,0,0,(sort*20)+type)
+ ;
+ 
+ 
 
 
 
