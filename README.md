@@ -3,10 +3,10 @@
 MGateway Service Integration Gateway (**SIG**) for InterSystems **Cache/IRIS** and **YottaDB**.
 
 Chris Munt <cmunt@mgateway.com>  
-7 November 2023, MGateway Ltd [http://www.mgateway.com](http://www.mgateway.com)
+10 November 2023, MGateway Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
 * Current Release: Version: 3.1; Revision 103 (27 May 2023).
-* SuperServer (%zmgsi routines) Release: Version: 4.5; Revision 29 (7 November 2023).
+* SuperServer (%zmgsi routines) Release: Version: 4.5; Revision 30 (10 November 2023).
 * [Release Notes](#RelNotes) can be found at the end of this document.
 
 Contents
@@ -353,3 +353,8 @@ Unless required by applicable law or agreed to in writing, software distributed 
 ### v3.1.103; Superserver v4.5.29 7 November 2023)
 
 * Correct a fault affecting the return of Unicode data to Node.js through SQL.
+
+### v3.1.103; Superserver v4.5.30 10 November 2023)
+
+* Correct a fault in the operation to get previous global node with data.
+
