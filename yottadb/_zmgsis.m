@@ -68,12 +68,13 @@ a0 d vers q
  ; v4.5.28:   3 February  2023 (Allow the initial worker initialization message for the DBX protocol to be resent to an open/active connection)
  ; v4.5.29:   7 November  2023 (Correct a fault affecting the return of Unicode data to Node.js through SQL;
  ;                              Improve and optimise wire protocol for mg-dbx-napi)
+ ; v4.5.30:  10 November  2023 (Correct a fault in the operation to get previous global node with data).
  ;
 v() ; version and date
  n v,r,d
  s v="4.5"
- s r=29
- s d="7 November 2023"
+ s r=30
+ s d="10 November 2023"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -1029,17 +1030,17 @@ dbxcmnd(%r,%oref,cmnd,res,utf16) ; Execute command
  . i $g(utf16) s res=$$utf8out(res),data=$$utf8out(data),utf16=0
  . s res=$s($g(%zcs("protocol"))=2:$$esize256($l(data))_$c((sort*20)+type)_data_$$gparse(.key,res)_$$eod(),1:$$esize256($l(res))_$c((sort*20)+type)_res_$$esize256($l(data))_$c((sort*20)+type)_data)
  . q
- i cmnd=22 s res=$q(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)),-1) q 0
+ i cmnd=22 s res=$q(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)),-1) s:$g(%zcs("protocol"))=2 res=$$empty()_$$gparse(.key,res)_$$eod() q 0
  i cmnd=221 d  q 0
  . s res=$q(@($$dbxglo(%r(1))_$$dbxref(.%r,2,%r,0)),-1)
  . s data="" i res'="" s data=$g(@res)
  . s sort=1,type=1
  . i $g(utf16) s res=$$utf8out(res),data=$$utf8out(data),utf16=0
- . s res=$s($g(%zcs("protocol"))=2:$$esize256($l(data))_$c((sort*20)+type)_data_$$esize256($l(res))_$c((sort*20)+type)_res,1:$$esize256($l(res))_$c((sort*20)+type)_res_$$esize256($l(data))_$c((sort*20)+type)_data)
+ . s res=$s($g(%zcs("protocol"))=2:$$esize256($l(data))_$c((sort*20)+type)_data_$$gparse(.key,res)_$$eod(),1:$$esize256($l(res))_$c((sort*20)+type)_res_$$esize256($l(data))_$c((sort*20)+type)_data)
  . q
  i cmnd=31 s res=$$dbxfun(.%r,"$$"_%r(1)_"("_$$dbxref(.%r,2,%r,1)_")",.utf16) q 0
- i cmnd=51 s res=$o(@%r(1)) q 0
- i cmnd=52 s res=$o(@%r(1),-1) q 0
+ i cmnd=51 s:($e(%r(1))'="^")!($l(%r(1))<2) %r(1)="^%" s res=$o(@%r(1)) q 0
+ i cmnd=52 s:($e(%r(1))'="^")!($l(%r(1))<2) %r(1)="^z" s res=$o(@%r(1),-1) q 0
  i cmnd=61 tstart  s res=0 q 0
  i cmnd=62 s res=$tlevel q 0
  i cmnd=63 tcommit  s res=0 q 0
