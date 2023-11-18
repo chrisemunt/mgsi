@@ -69,12 +69,13 @@ a0 d vers q
  ; v4.5.29:   7 November  2023 (Correct a fault affecting the return of Unicode data to Node.js through SQL;
  ;                              Improve and optimise wire protocol for mg-dbx-napi)
  ; v4.5.30:  10 November  2023 (Correct a fault in the operation to get previous global node with data).
+ ; v4.5.31:  18 November  2023 (Set flag to always recompile SQL queries for YottaDB).
  ;
 v() ; version and date
  n v,r,d
  s v="4.5"
- s r=30
- s d="10 November 2023"
+ s r=31
+ s d="18 November 2023"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -1339,6 +1340,7 @@ sqlemg(id,sql,params) ; Execute MGSQL SQL query
  s result="0",error="",data="",cn=0
  s %zi("stmt")=id
  s v=$$sqlmgv() i v="" s error="MGSQL not installed" g sqlemge1
+ i $$isydb() s %zi(0,"recompile")=1
  s ok=$$exec^%mgsql("",sql,.%zi,.%zo)
  i $d(%zo("error")) s error=$g(%zo("error")) g sqlemge1
  s sort=1,type=1
