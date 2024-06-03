@@ -1,12 +1,12 @@
 Cache for Windows^INT^zmgsi
-%RO on 10 Nov 2023 01:00 AM
+%RO on 03 Jun 2024 01:00 AM
 %zmgsi
 %zmgsi ;(CM) Service Integration - Core Server
  ;
  ;  ----------------------------------------------------------------------------
  ;  | %zmgsi                                                                   |
  ;  | Author: Chris Munt cmunt@mgateway.com, chris.e.munt@gmail.com            |
- ;  | Copyright (c) 2016-2023 MGateway Ltd                                     |
+ ;  | Copyright (c) 2016-2024 MGateway Ltd                                     |
  ;  | Surrey UK.                                                               |
  ;  | All rights reserved.                                                     |
  ;  |                                                                          |
@@ -262,7 +262,7 @@ ylink ; link all routines
  ;  ----------------------------------------------------------------------------
  ;  | %zmgsis                                                                  |
  ;  | Author: Chris Munt cmunt@mgateway.com, chris.e.munt@gmail.com            |
- ;  | Copyright (c) 2016-2023 MGateway Ltd                                     |
+ ;  | Copyright (c) 2016-2024 MGateway Ltd                                     |
  ;  | Surrey UK.                                                               |
  ;  | All rights reserved.                                                     |
  ;  |                                                                          |
@@ -328,12 +328,14 @@ a0 d vers q
  ; v4.5.29:   7 November  2023 (Correct a fault affecting the return of Unicode data to Node.js through SQL;
  ;                              Improve and optimise wire protocol for mg-dbx-napi)
  ; v4.5.30:  10 November  2023 (Correct a fault in the operation to get previous global node with data).
+ ; v4.5.31:  18 November  2023 (Set flag to always recompile SQL queries for YottaDB).
+ ; v4.5.32:   3 June      2024 (Introduce support for SSE in mg_web).
  ;
 v() ; version and date
  n v,r,d
  s v="4.5"
- s r=30
- s d="10 November 2023"
+ s r=32
+ s d="3 June 2024"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -1543,6 +1545,7 @@ dbxweb2 ; request serviced
  ; +not_ydb
  d uci(uci)
  ; -not_ydb
+ i $g(%sys("sse")) h
  i '$g(%sys("stream")) q $$esize256(no)_$c(0)_res
  s len=$l(res) i len d
  . i $g(%sys("stream"))=1 d writex(res,len) q
@@ -1615,6 +1618,12 @@ mgwebsocke ; Error
 websocket(%sys,binary,options)
  n res
  s res="HTTP/2 200 OK"_$c(13,10)_"Binary: "_($g(binary)+0)_$c(13,10,13,10)
+ w $$esize256^%zmgsis($l(res)+5)_$c(0)_$$esize256^%zmgsis(($g(%sys("no"))+0))_$c(0)_res d flush^%zmgsis
+ q ""
+ ;
+sse(%sys,options)
+ n res
+ s res="HTTP/1.1 200 OK"_$c(13,10)_"Content-Type: text/event-stream"_$c(13,10)_"Cache-Control: no-cache"_$c(13,10)_"Connection: keep-alive"_$c(13,10,13,10)
  w $$esize256^%zmgsis($l(res)+5)_$c(0)_$$esize256^%zmgsis(($g(%sys("no"))+0))_$c(0)_res d flush^%zmgsis
  q ""
  ;
@@ -1824,6 +1833,7 @@ sqlemg(id,sql,params) ; Execute MGSQL SQL query
  s result="0",error="",data="",cn=0
  s %zi("stmt")=id
  s v=$$sqlmgv() i v="" s error="MGSQL not installed" g sqlemge1
+ i $$isydb() s %zi(0,"recompile")=1
  s ok=$$exec^%mgsql("",sql,.%zi,.%zo)
  i $d(%zo("error")) s error=$g(%zo("error")) g sqlemge1
  s sort=1,type=1
