@@ -3,10 +3,10 @@
 MGateway Service Integration Gateway (**SIG**) for InterSystems **Cache/IRIS** and **YottaDB**.
 
 Chris Munt <cmunt@mgateway.com>  
-10 November 2023, MGateway Ltd [http://www.mgateway.com](http://www.mgateway.com)
+3 June 2024, MGateway Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
 * Current Release: Version: 3.1; Revision 103 (27 May 2023).
-* SuperServer (%zmgsi routines) Release: Version: 4.5; Revision 30 (10 November 2023).
+* SuperServer (%zmgsi routines) Release: Version: 4.5; Revision 32 (3 June 2024).
 * [Release Notes](#RelNotes) can be found at the end of this document.
 
 Contents
@@ -58,25 +58,25 @@ Change to your development Namespace and check the installation:
        do ^%zmgsi
 
        MGateway Ltd - Service Integration Gateway
-       Version: 4.5; Revision 28 (3 February 2023)
+       Version: 4.5; Revision 32 (3 June 2024)
 
 ### YottaDB
 
-The instructions given here assume a standard 'out of the box' installation of **YottaDB** deployed in the following location:
+The instructions given here assume a standard 'out of the box' installation of **YottaDB** (v3.8) deployed in the following location:
 
-       /usr/local/lib/yottadb/r130
+       /usr/local/lib/yottadb/r138
 
 The primary default location for routines:
 
-       /root/.yottadb/r1.30_x86_64/r
+       /root/.yottadb/r1.38_x86_64/r
 
 Copy all the Superserver routines (i.e. all files with an 'm' extension) held in the GitHub **/yottadb** directory to:
 
-       /root/.yottadb/r1.30_x86_64/r
+       /root/.yottadb/r1.38_x86_64/r
 
 Change directory to the following location and start a **YottaDB** command shell:
 
-       cd /usr/local/lib/yottadb/r130
+       cd /usr/local/lib/yottadb/r138
        ./ydb
 
 Link all the **zmgsi** routines and check the installation:
@@ -86,7 +86,7 @@ Link all the **zmgsi** routines and check the installation:
        do ^%zmgsi
 
        MGateway Ltd - Service Integration Gateway
-       Version: 4.5; Revision 28 (3 February 2023)
+       Version: 4.5; Revision 32 (3 June 2024)
 
 
 Note that the version of **zmgsi** is successfully displayed.
@@ -119,21 +119,21 @@ DB Superserver version 4.4 (and later) can accept secured connections from clien
 
 Network connectivity to **YottaDB** is managed via the **xinetd** service.  First create the following launch script (called **zmgsi\_ydb** here):
 
-       /usr/local/lib/yottadb/r130/zmgsi_ydb
+       /usr/local/lib/yottadb/r138/zmgsi_ydb
 
 Content:
 
        #!/bin/bash
-       cd /usr/local/lib/yottadb/r130
+       cd /usr/local/lib/yottadb/r138
        export ydb_dir=/root/.yottadb
-       export ydb_dist=/usr/local/lib/yottadb/r130
-       export ydb_routines="/root/.yottadb/r1.30_x86_64/o*(/root/.yottadb/r1.30_x86_64/r /root/.yottadb/r) /usr/local/lib/yottadb/r130/libyottadbutil.so"
-       export ydb_gbldir="/root/.yottadb/r1.30_x86_64/g/yottadb.gld"
+       export ydb_dist=/usr/local/lib/yottadb/r138
+       export ydb_routines="/root/.yottadb/r1.38_x86_64/o*(/root/.yottadb/r1.38_x86_64/r /root/.yottadb/r) /usr/local/lib/yottadb/r138/libyottadbutil.so"
+       export ydb_gbldir="/root/.yottadb/r1.38_x86_64/g/yottadb.gld"
        $ydb_dist/ydb -r xinetd^%zmgsis
 
 Note that you should, if necessary, modify the permissions on this file so that it is executable.  For example:
 
-       chmod a=rx /usr/local/lib/yottadb/r130/zmgsi_ydb
+       chmod a=rx /usr/local/lib/yottadb/r138/zmgsi_ydb
 
 
 Create the **xinetd** script (called **zmgsi\_xinetd** here): 
@@ -150,7 +150,7 @@ Content:
             socket_type     = stream
             wait            = no
             user            = root
-            server          = /usr/local/lib/yottadb/r130/zmgsi_ydb
+            server          = /usr/local/lib/yottadb/r138/zmgsi_ydb
        }
 
 * Note: sample copies of **zmgsi\_xinetd** and **zmgsi\_ydb** are included in the **/unix** directory.
@@ -256,7 +256,7 @@ The **zmgsi** server-side code will write to the following global:
 
 ## <a name="License"></a> License
 
-Copyright (c) 2018-2023 MGateway Ltd,
+Copyright (c) 2018-2024 MGateway Ltd,
 Surrey UK.                                                      
 All rights reserved.
  
@@ -346,15 +346,24 @@ Unless required by applicable law or agreed to in writing, software distributed 
 
 * Allow the initial worker initialization message for the DBX protocol to be resent to an open/active connection.  This change was made primarily to allow the M client to seamlessly reconnect to an existing (open) connection to the Superserver.
 
-### v3.1.103; Superserver v4.5.28 27 May 2023)
+### v3.1.103; Superserver v4.5.28 (27 May 2023)
 
 * Documentation update.
 
-### v3.1.103; Superserver v4.5.29 7 November 2023)
+### v3.1.103; Superserver v4.5.29 (7 November 2023)
 
-* Correct a fault affecting the return of Unicode data to Node.js through SQL.
+* Correct a fault affecting the return of Unicode data to Node.js through 
+* SQL.
 
-### v3.1.103; Superserver v4.5.30 10 November 2023)
+### v3.1.103; Superserver v4.5.30 (10 November 2023)
 
 * Correct a fault in the operation to get previous global node with data.
+
+### v3.1.103; Superserver v4.5.31 (18 November 2023)
+
+* Avoid occasional **mgsql** failures in YottaDB by always reloading the generated code before execution.
+
+### v3.1.103; Superserver v4.5.32 (3 June 2024)
+
+* Introduce support for Server-Sent Events (SSE) in **mg\_web**.
 
