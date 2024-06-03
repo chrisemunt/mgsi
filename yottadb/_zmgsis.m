@@ -3,7 +3,7 @@
  ;  ----------------------------------------------------------------------------
  ;  | %zmgsis                                                                  |
  ;  | Author: Chris Munt cmunt@mgateway.com, chris.e.munt@gmail.com            |
- ;  | Copyright (c) 2016-2023 MGateway Ltd                                     |
+ ;  | Copyright (c) 2016-2024 MGateway Ltd                                     |
  ;  | Surrey UK.                                                               |
  ;  | All rights reserved.                                                     |
  ;  |                                                                          |
@@ -70,12 +70,13 @@ a0 d vers q
  ;                              Improve and optimise wire protocol for mg-dbx-napi)
  ; v4.5.30:  10 November  2023 (Correct a fault in the operation to get previous global node with data).
  ; v4.5.31:  18 November  2023 (Set flag to always recompile SQL queries for YottaDB).
+ ; v4.5.32:   3 June      2024 (Introduce support for SSE in mg_web).
  ;
 v() ; version and date
  n v,r,d
  s v="4.5"
- s r=31
- s d="18 November 2023"
+ s r=32
+ s d="3 June 2024"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -1110,6 +1111,7 @@ dbxweb(ctx,data,param) ; mg_web function invocation
  s res=$$dbxweb1(.%cgi,.%var,.%sys)
 dbxweb2 ; request serviced
  k %mgweb
+ i $g(%sys("sse")) h
  i '$g(%sys("stream")) q $$esize256(no)_$c(0)_res
  s len=$l(res) i len d
  . i $g(%sys("stream"))=1 d writex(res,len) q
@@ -1182,6 +1184,12 @@ mgwebsocke ; Error
 websocket(%sys,binary,options)
  n res
  s res="HTTP/2 200 OK"_$c(13,10)_"Binary: "_($g(binary)+0)_$c(13,10,13,10)
+ w $$esize256^%zmgsis($l(res)+5)_$c(0)_$$esize256^%zmgsis(($g(%sys("no"))+0))_$c(0)_res d flush^%zmgsis
+ q ""
+ ;
+sse(%sys,options)
+ n res
+ s res="HTTP/1.1 200 OK"_$c(13,10)_"Content-Type: text/event-stream"_$c(13,10)_"Cache-Control: no-cache"_$c(13,10)_"Connection: keep-alive"_$c(13,10,13,10)
  w $$esize256^%zmgsis($l(res)+5)_$c(0)_$$esize256^%zmgsis(($g(%sys("no"))+0))_$c(0)_res d flush^%zmgsis
  q ""
  ;
