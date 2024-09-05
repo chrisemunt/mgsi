@@ -58,7 +58,7 @@ Change to your development Namespace and check the installation:
        do ^%zmgsi
 
        MGateway Ltd - Service Integration Gateway
-       Version: 4.5; Revision 32 (3 June 2024)
+       Version: 4.5; Revision 34 (5 September 2024)
 
 ### YottaDB
 
@@ -86,7 +86,7 @@ Link all the **zmgsi** routines and check the installation:
        do ^%zmgsi
 
        MGateway Ltd - Service Integration Gateway
-       Version: 4.5; Revision 32 (3 June 2024)
+       Version: 4.5; Revision 34 (5 September 2024)
 
 
 Note that the version of **zmgsi** is successfully displayed.
