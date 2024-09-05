@@ -1,6 +1,6 @@
 Cache for Windows^INT^zmgsi^~Format=Cache.S~^RAW
-%RO on 09 Jul 2024 01:00 AM
-%zmgsi^INT^1^67030,81166.0^0
+%RO on 05 Sep 2024 01:00 AM
+%zmgsi^INT^1^67088,52545.0^0
 %zmgsi ;(CM) Service Integration - Core Server
  ;
  ;  ----------------------------------------------------------------------------
@@ -256,7 +256,7 @@ ylink ; link all routines
  q
  ;
 
-%zmgsis^INT^1^67030,81166.0^0
+%zmgsis^INT^1^67088,52545.0^0
 %zmgsis ;(CM) Service Integration - Child Process
  ;
  ;  ----------------------------------------------------------------------------
@@ -331,12 +331,13 @@ a0 d vers q
  ; v4.5.31:  18 November  2023 (Set flag to always recompile SQL queries for YottaDB).
  ; v4.5.32:   3 June      2024 (Introduce support for SSE in mg_web).
  ; v4.5.33:   9 July      2024 (Introduce mg_web support for multipart payloads exceeding the DB Server maximum string length).
+ ; v4.5.34:   5 September 2024 (Introduce mg_web support for payloads of type 'application/x-www-form-urlencoded' that exceed the DB Server maximum string length).
  ;
 v() ; version and date
  n v,r,d
  s v="4.5"
- s r=33
- s d="9 July 2024"
+ s r=34
+ s d="5 September 2024"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -415,7 +416,7 @@ getmsl() ; Get maximum string length
  n max
  s $zt="getmsle^%zmgsis" ; new $ztrap set $ztrap="zgoto "_$zlevel_":getmsle^%zmgsis"
  ; +not_ydb
- q $system.SYS.MaxLocalLength()
+ q 1024 ;$system.SYS.MaxLocalLength()
  ; -not_ydb
  ; +ydb
  ; q 1048576
@@ -1699,9 +1700,11 @@ content(%nv,%nvhead,%payload,%cgi) ; generic function for parsing request payloa
  ;
 nvpair(%nv,%payload) ; parse content type: application/x-www-form-urlencoded
  n i,x,def,name,value,value1
- s %payload=$g(%payload) ; TODO: more work needed to properly support large payloads held in an array
+ s %payload=$g(%payload)
+ i $d(%payload(1)),'$d(%payload(2)) s x=$g(%payload(1)) k %payload s %payload=x
+ i $d(%payload(1)) s:$g(%payload)'="" %payload(0)=%payload q $$nvpair1(.%nv,.%payload)
  ; +ydb
- ; f i=1:1:$l(%payload,"&") s x=$p(%payload,"&",i),name=$$urld($p(x,"=",1)),value=$$urld($p(x,"=",2,999999)) i name'="" d
+ ; f i=1:1:$l(%payload,"&") s x=$p(%payload,"&",i),name=$$urld($p(x,"=",1)),value=$$urld($p(x,"=",2,9999999)) i name'="" d
  ; . s def=$d(%nv(name))
  ; . i 'def s %nv(name)=value q
  ; . i def#10 s value1=$g(%nv(name)) k %nv(name) s %nv(name,1)=value1,%nv(name,2)=value q
@@ -1709,7 +1712,7 @@ nvpair(%nv,%payload) ; parse content type: application/x-www-form-urlencoded
  ; . q
  ; -ydb
  ; +not_ydb
- f i=1:1:$l(%payload,"&") s x=$p(%payload,"&",i),name=$zcvt($p(x,"=",1),"I","URL"),value=$zcvt($p(x,"=",2,999999),"I","URL") i name'="" d
+ f i=1:1:$l(%payload,"&") s x=$p(%payload,"&",i),name=$zcvt($p(x,"=",1),"I","URL"),value=$zcvt($p(x,"=",2,9999999),"I","URL") i name'="" d
  . s def=$d(%nv(name))
  . i 'def s %nv(name)=value q
  . i def#10 s value1=$g(%nv(name)) k %nv(name) s %nv(name,1)=value1,%nv(name,2)=value q
@@ -1717,6 +1720,64 @@ nvpair(%nv,%payload) ; parse content type: application/x-www-form-urlencoded
  . q
  ; -not_ydb
  q 1
+ ;
+nvpair1(%nv,%payload) ; parse large application/x-www-form-urlencoded payload in an array
+ n cn,cn1,cc,cc1,maxsize,rc,tmp
+ s cn=$o(%payload("")),cn1="",cc=1,cc1=1
+ s maxsize=$$getmsl()-10
+ f  s cn1=$o(%payload(cn1)) q:cn1=""  d
+ . f  s cc1=$f(%payload(cn1),"&",cc1) q:'cc1  d
+ . . s rc=$$nvpair2(.tmp,cn,cc,cn1,cc1)
+ . . s rc=$$nvpair4(.%nv,.tmp)
+ . . s cn=cn1,cc=cc1
+ . . q
+ . q
+ s rc=$$nvpair2(.tmp,cn,cc,$o(%payload(""),-1),999999)
+ s rc=$$nvpair4(.%nv,.tmp)
+ q 1
+ ;
+nvpair2(tmp,cn,cc,cn1,cc1) ; extract single name/value pair
+ n n,x,rc
+ k tmp
+ f n=cn:1:cn1 d
+ . s x=$g(%payload(n)) i x="" q
+ . i cn=cn1 s rc=$$nvpair3(.tmp,$e(x,cc,cc1-2),maxsize) q
+ . i n=cn s rc=$$nvpair3(.tmp,$e(x,cc,999999),maxsize) q
+ . i n=cn1 s rc=$$nvpair3(.tmp,$e(x,1,cc1-2),maxsize) q
+ . s rc=$$nvpair3(.tmp,x,maxsize)
+ . q
+ q 0
+ ;
+nvpair3(tmp,chunk,maxsize) ; record single name/value pair in array
+ n len1,len2,x,n
+ s n=$o(tmp(0,""),-1) i n="" s n=1
+ s x=$g(tmp(0,n))
+ s len1=$l(x)
+ s len2=$l(chunk) i len2=0 q 0
+ i len1<maxsize s x=x_$e(chunk,1,maxsize-len1),tmp(0,n)=x,x=$e(chunk,(maxsize-len1)+1,9999999),len2=$l(x)
+ i len2 s n=n+1,tmp(0,n)=x
+ q 0
+ ;
+nvpair4(%nv,tmp) ; add name/value pair to final array
+ n n,x,name,len,vno,tmp1
+ s x=$g(tmp(0,1)),name=$p(x,"=",1),tmp(0,1)=$p(x,"=",2,9999999)
+ i name="" q 0
+ i '$d(tmp(0,2)) s x=$g(tmp(0,1)) k tmp s tmp=$$urld(x)
+ f n=1:1 q:'$d(tmp(0,n))  d   s tmp(0,n)=$$urld(x)
+ . s x=$g(tmp(0,n)),len=$l(x)
+ . i $e(x,len)="%",$d(tmp(0,n+1)) s x=x_$e(tmp(0,n+1),1,2),tmp(0,n+1)=$e(tmp(0,n+1),3,9999999) q
+ . i $e(x,len-1)="%",$d(tmp(0,n+1)) s x=x_$e(tmp(0,n+1),1,1),tmp(0,n+1)=$e(tmp(0,n+1),2,9999999) q
+ . q
+ i $d(%nv(name)),'$d(%nv(name,1)) d  q 0
+ . m tmp1=%nv(name)
+ . k %nv(name)
+ . m %nv(name,1)=tmp1,%nv(name,2)=tmp
+ . q
+ i $d(%nv(name,1)) d  q 0
+ . s vno=$o(%nv(name,""),-1)+1 m %nv(name,vno)=tmp
+ . q
+ m %nv(name)=tmp
+ q 0
  ;
 multipart(%content,%nvhead,%payload,%boundary) ; parse content type: multipart/form-data
  n blen,sn1,sn2,snh,snc,snx,sn,n,headers,content,rc
@@ -1743,7 +1804,7 @@ msection(%content,%nvhead,headers,data,sn) ; Set a single component in a multipa
  n harray,temp,temphead,n,header,hname,hvalue,sname,def
  ; process the headers for the section
  f n=1:1 s header=$p(headers,$c(13,10),n) q:header=""  d
- . s hname=$$trim($p(header,":",1)," "),hvalue=$$trim($p(header,":",2,9999)," ") i hname="" q
+ . s hname=$$trim($p(header,":",1)," "),hvalue=$$trim($p(header,":",2,9999999)," ") i hname="" q
  . i hname="Content-Disposition" s sname=$p($p(hvalue,"name=""",2),"""",1)
  . s harray(hname)=hvalue
  . q
@@ -1792,10 +1853,6 @@ multipart1(%content,%nvhead,%payload,%boundary,blen) ; Large multipart payload i
  . s hendprev=hend,cnprev=cn
  . q
  q 1
- ;
-finds(%payload,n,strt)
- s x=2
- q 0
  ;
 urld(%val) ; URL decode (unescape)
  s $zt="urlde^%zmgsis" ; new $ztrap set $ztrap="zgoto "_$zlevel_":urlde^%zmgsis"
@@ -1974,7 +2031,7 @@ gparse(key,ref) ; parse global reference
  n i,x,y,blk,dlm,sort,type
  k key s key=0
  s blk="",sort=1,type=1
- s x=$p($e(ref,1,$l(ref)-1),"(",2,999999)
+ s x=$p($e(ref,1,$l(ref)-1),"(",2,9999999)
  f i=1:1:$l(x,",") s x(i)=$p(x,",",i)
  s y="",dlm="" f i=1:1 q:'$d(x(i))  d
  . s y=y_dlm_x(i),dlm="," i ($l(y,"""")#2) s key=key+1,key(key)=y s:y["""" @("key(key)="_y) s y="",dlm="",blk=blk_$$esize256($l(key(key)))_$c((sort*20)+type)_key(key)
