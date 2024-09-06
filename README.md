@@ -3,10 +3,10 @@
 MGateway Service Integration Gateway (**SIG**) for InterSystems **Cache/IRIS** and **YottaDB**.
 
 Chris Munt <cmunt@mgateway.com>  
-5 September 2024, MGateway Ltd [http://www.mgateway.com](http://www.mgateway.com)
+6 September 2024, MGateway Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
 * Current Release: Version: 3.1; Revision 103 (27 May 2023).
-* SuperServer (%zmgsi routines) Release: Version: 4.5; Revision 34 (5 September 2024).
+* SuperServer (%zmgsi routines) Release: Version: 4.5; Revision 35 (6 September 2024).
 * [Release Notes](#RelNotes) can be found at the end of this document.
 
 Contents
@@ -374,3 +374,7 @@ Unless required by applicable law or agreed to in writing, software distributed 
 ### v3.1.103; Superserver v4.5.34 (5 September 2024)
 
 * Introduce **mg\_web** support for payloads of type 'application/x-www-form-urlencoded' that exceed the DB Server maximum string length.
+
+### v3.1.103; Superserver v4.5.35 (6 September 2024)
+
+* Ensure that superserver processes close down gracefully on encountering network errors.
