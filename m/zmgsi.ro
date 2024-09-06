@@ -1,5 +1,5 @@
 Cache for Windows^INT^zmgsi
-%RO on 05 Sep 2024 01:00 AM
+%RO on 06 Sep 2024 01:00 AM
 %zmgsi
 %zmgsi ;(CM) Service Integration - Core Server
  ;
@@ -332,12 +332,13 @@ a0 d vers q
  ; v4.5.32:   3 June      2024 (Introduce support for SSE in mg_web).
  ; v4.5.33:   9 July      2024 (Introduce mg_web support for multipart payloads exceeding the DB Server maximum string length).
  ; v4.5.34:   5 September 2024 (Introduce mg_web support for payloads of type 'application/x-www-form-urlencoded' that exceed the DB Server maximum string length).
+ ; v4.5.35:   6 September 2024 (Ensure that superserver processes close down gracefully on encountering network errors).
  ;
 v() ; version and date
  n v,r,d
  s v="4.5"
- s r=34
- s d="5 September 2024"
+ s r=35
+ s d="6 September 2024"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -708,7 +709,7 @@ child(pport,port,tls,opts) ; child
  ;
 child1 ; prepare for child request loop
  d vars(.%zcs)
- s error=$$opts(.%zcs,$g(opts)) i error'="" d event(error)
+ s error=$$opts(.%zcs,$g(opts)) i error'="" d:$g(^%zmgsi("loglevel"))>0 event(error)
 child2 ; child request loop
  k ^mgsi($j)
  d delavars(.%zcs)
@@ -769,10 +770,12 @@ child4 ; request header received
  g child2
  ;
 childe ; error
- d event($$error())
- i $$error()["read" d halt(.%zcs)
+ d:$g(^%zmgsi("loglevel"))>0 event($$error())
+ i $$error()["read"!($$error()["READ") d halt(.%zcs)
+ i $$error()["write"!($$error()["WRITE") d halt(.%zcs)
  ; +ydb
  ; i $$error()["%gtm-e-ioeof" d halt(.%zcs)
+ ; i $$error()["%GTM-E-IOEOF" d halt(.%zcs)
  ; -ydb
  g child2
  ;
@@ -857,7 +860,7 @@ array2(%zcs,req,argc,xkey,kn,sn,val) ; read array - set a single node
  i $l(ref) x "s "_ref_"=val"
  q
 array2e ; error
- d event("array: "_$$error())
+ d:$g(^%zmgsi("loglevel"))>0 event("array: "_$$error())
  q
  ;
 end(%zcs) ; terminate response
@@ -1081,7 +1084,7 @@ mcom(%zcs,req,argc,cmnd,%oref) ; execute M command
  . q
  q res
 mcome ; error
- d event($$client(.%zcs)_" error : "_$$error())
+ d:$g(^%zmgsi("loglevel"))>0 event($$client(.%zcs)_" error : "_$$error())
  k %zcs("buffer") s %zcs("buffer")="",%zcs("buffer",2)="m server error : ["_$g(%zcs("buffer",2))_"]"_$tr($$error(),"<>%","[]^")_$g(ref)
  s %zcs("buffer",1)="00000ce"_$c(10)
  q res
@@ -1313,8 +1316,8 @@ checkunpw(username,password)
  n x,username1,password1
  s x=$$getunpw(.username1,.password1)
  i username1="",password1="" q 1
- i username1'=username d event("access violation: bad username") q 0
- i password1'=password d event("access violation: bad password") q 0
+ i username1'=username d:$g(^%zmgsi("loglevel"))>0 event("access violation: bad username") q 0
+ i password1'=password d:$g(^%zmgsi("loglevel"))>0 event("access violation: bad password") q 0
  q 1
  ;
 dbx(%zcs,ctx,cmnd,data,len,param) ; entry point from fixed binding
@@ -1558,7 +1561,8 @@ dbxweb2 ; request serviced
 dbxwebe ; Error
  s res=$$error()
 dbxwebe1 ; Error - non M
- d event(res)
+ s $zt="dbxwebe2^%zmgsis" ; new $ztrap set $ztrap="zgoto "_$zlevel_":dbxwebe2^%zmgsis"
+ d:$g(^%zmgsi("loglevel"))>0 event(res)
  ; with API mode we must not halt the process
  i $g(%sys("mode"))="api" q $$esize256($g(no)+0)_$c(0)_res
  i '$g(%sys("stream")) q $$esize256($g(no)+0)_$c(0)_res
@@ -1566,6 +1570,7 @@ dbxwebe1 ; Error - non M
  i $g(%sys("stream"))=1 d writex(res,$l(res))
  i $g(%sys("stream"))=2 w res
  d streamx(.%sys) w $c(255,255,255,255) d flush
+dbxwebe2 ; Halt process if we cannot write to the primary device
  h
  ;
 dbxweb1(%cgi,%var,%sys)
