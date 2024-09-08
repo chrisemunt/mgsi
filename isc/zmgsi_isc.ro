@@ -1,6 +1,6 @@
 Cache for Windows^INT^zmgsi^~Format=Cache.S~^RAW
-%RO on 06 Sep 2024 01:00 AM
-%zmgsi^INT^1^67089,60881.0^0
+%RO on 08 Sep 2024 01:00 AM
+%zmgsi^INT^1^67091,62670.0^0
 %zmgsi ;(CM) Service Integration - Core Server
  ;
  ;  ----------------------------------------------------------------------------
@@ -256,7 +256,7 @@ ylink ; link all routines
  q
  ;
 
-%zmgsis^INT^1^67089,60881.0^0
+%zmgsis^INT^1^67091,62670.0^0
 %zmgsis ;(CM) Service Integration - Child Process
  ;
  ;  ----------------------------------------------------------------------------
@@ -417,7 +417,7 @@ getmsl() ; Get maximum string length
  n max
  s $zt="getmsle^%zmgsis" ; new $ztrap set $ztrap="zgoto "_$zlevel_":getmsle^%zmgsis"
  ; +not_ydb
- q 1024 ;$system.SYS.MaxLocalLength()
+ q $system.SYS.MaxLocalLength()
  ; -not_ydb
  ; +ydb
  ; q 1048576
