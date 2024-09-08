@@ -1,5 +1,5 @@
 Cache for Windows^INT^zmgsi
-%RO on 06 Sep 2024 01:00 AM
+%RO on 08 Sep 2024 01:00 AM
 %zmgsi
 %zmgsi ;(CM) Service Integration - Core Server
  ;
@@ -417,7 +417,7 @@ getmsl() ; Get maximum string length
  n max
  s $zt="getmsle^%zmgsis" ; new $ztrap set $ztrap="zgoto "_$zlevel_":getmsle^%zmgsis"
  ; +not_ydb
- q 1024 ;$system.SYS.MaxLocalLength()
+ q $system.SYS.MaxLocalLength()
  ; -not_ydb
  ; +ydb
  ; q 1048576
