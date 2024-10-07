@@ -74,12 +74,13 @@ a0 d vers q
  ; v4.5.33:   9 July      2024 (Introduce mg_web support for multipart payloads exceeding the DB Server maximum string length).
  ; v4.5.34:   5 September 2024 (Introduce mg_web support for payloads of type 'application/x-www-form-urlencoded' that exceed the DB Server maximum string length).
  ; v4.5.35:   6 September 2024 (Ensure that superserver processes close down gracefully on encountering network errors).
+ ; v4.5.36:   7 October   2024 (Add support for network invocation of the setchildnodes() and getchildnodes() methods for Node.js)
  ;
 v() ; version and date
  n v,r,d
  s v="4.5"
- s r=35
- s d="6 September 2024"
+ s r=36
+ s d="7 October 2024"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -917,13 +918,16 @@ checkunpw(username,password)
  q 1
  ;
 dbx(%zcs,ctx,cmnd,data,len,param) ; entry point from fixed binding
- n %r,obufsize,idx,offset,rc,sort,res,ze,oref,type,utf16
+ n %r,obufsize,idx,offset,rc,sort,res,ze,oref,type,utf16,end
  new $ztrap set $ztrap="zgoto "_$zlevel_":dbxe^%zmgsis"
  s obufsize=$$dsize256($e(data,1,4))
  s utf16=$s($a(data,5)=255:1,1:0)
  s idx=$$dsize256($e(data,6,9))
- k %r s offset=11 f %r=1:1 s %r(%r,0)=$$dsize256($e(data,offset,offset+3)) d  i '$d(%r(%r)) s %r=%r-1 q
- . s %r(%r,1)=$a(data,offset+4)\20,%r(%r,2)=$a(data,offset+4)#20 i %r(%r,1)=9 k %r(%r) q
+ k %r s offset=11,end=0 f %r=1:1 s %r(%r,0)=$$dsize256($e(data,offset,offset+3)) d  i '$d(%r(%r)) s %r=%r-1 q
+ . s %r(%r,1)=$a(data,offset+4)\20,%r(%r,2)=$a(data,offset+4)#20 i %r(%r,1)=9 d  i end=2 k %r(%r) q
+ . . s end=end+1
+ . . i cmnd'=23,cmnd'=24 s end=2 q
+ . . q
  . i %r(%r,1)=-1 k %r(%r) q
  . s %r(%r)=$e(data,offset+5,offset+5+(%r(%r,0)-1))
  . i $g(utf16) s %r(%r)=$$utf8in(%r(%r))
@@ -1044,6 +1048,35 @@ dbxcmnd(%r,%oref,cmnd,res,utf16) ; Execute command
  . s sort=1,type=1
  . i $g(utf16) s res=$$utf8out(res),data=$$utf8out(data),utf16=0
  . s res=$s($g(%zcs("protocol"))=2:$$esize256($l(data))_$c((sort*20)+type)_data_$$gparse(.key,res)_$$eod(),1:$$esize256($l(res))_$c((sort*20)+type)_res_$$esize256($l(data))_$c((sort*20)+type)_data)
+ . q
+ i cmnd=23 d  q 0
+ . n i,ref,com,opt
+ . s ref=$$dbxglo(%r(1))_"(",com=""
+ . f i=2:1 q:'$d(%r(i))  q:$g(%r(i,1))=9  s ref=ref_com_"%r("_i_")",com=","
+ . s i=i+1,opt=$g(%r(i))
+ . f i=i+1:2 q:'$d(%r(i+1))  s @(ref_com_"%r("_i_"))")=%r(%r)
+ . q
+ i cmnd=24 d  q 0
+ . n i,ref,com,opt,x,name,value,getdata,max,start,end
+ . s getdata=0,max=100,start="",end=""
+ . s ref=$$dbxglo(%r(1))_"(",com="",res=""
+ . f i=2:1 q:'$d(%r(i))  q:$g(%r(i,1))=9  s ref=ref_com_"%r("_i_")",com=","
+ . s i=i+1,opt=$g(%r(i)) f i=1:1 s x=$p(opt,$c(13,10),i) q:x=""  d
+ . . s name=$p(x,":",1),value=$p(x,":",2)
+ . . i name="getdata" s getdata=+value
+ . . i name="max" s max=+value i max=0 s max=100
+ . . i name="start" s start=value
+ . . i name="end" s end=value
+ . . q
+ . s ref=ref_com_"start"_")"
+ . s sort=1,type=1
+ . i start'="",$d(@ref) s data=$s(getdata:$g(@ref),1:""),res=res_$$esize256($l(start))_$c((sort*20)+type)_start_$$esize256($l(data))_$c((sort*20)+type)_data
+ . f  s start=$o(@ref) q:start=""  d  i start="" q
+ . . i end'="",start]end s start="" q
+ . . s data=$s(getdata:$g(@ref),1:"")
+ . . s res=res_$$esize256($l(start))_$c((sort*20)+type)_start_$$esize256($l(data))_$c((sort*20)+type)_data
+ . . q
+ . s sort=9,type=1,res=res_$$esize256($l(res))_$c((sort*20)+type)
  . q
  i cmnd=31 s res=$$dbxfun(.%r,"$$"_%r(1)_"("_$$dbxref(.%r,2,%r,1)_")",.utf16) q 0
  i cmnd=51 s:($e(%r(1))'="^")!($l(%r(1))<2) %r(1)="^%" s res=$o(@%r(1)) q 0
