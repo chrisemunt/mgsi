@@ -3,7 +3,7 @@
 MGateway Service Integration Gateway (**SIG**) for InterSystems **Cache/IRIS** and **YottaDB**.
 
 Chris Munt <cmunt@mgateway.com>  
-6 September 2024, MGateway Ltd [http://www.mgateway.com](http://www.mgateway.com)
+7 October 2024, MGateway Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
 * Current Release: Version: 3.1; Revision 103 (27 May 2023).
 * SuperServer (%zmgsi routines) Release: Version: 4.5; Revision 36 (7 October 2024).
