@@ -3,10 +3,10 @@
 MGateway Service Integration Gateway (**SIG**) for InterSystems **Cache/IRIS** and **YottaDB**.
 
 Chris Munt <cmunt@mgateway.com>  
-7 October 2024, MGateway Ltd [http://www.mgateway.com](http://www.mgateway.com)
+9 March 2025, MGateway Ltd [http://www.mgateway.com](http://www.mgateway.com)
 
 * Current Release: Version: 3.1; Revision 103 (27 May 2023).
-* SuperServer (%zmgsi routines) Release: Version: 4.5; Revision 36 (7 October 2024).
+* SuperServer (%zmgsi routines) Release: Version: 4.5; Revision 37 (9 March 2025).
 * [Release Notes](#RelNotes) can be found at the end of this document.
 
 Contents
@@ -58,7 +58,7 @@ Change to your development Namespace and check the installation:
        do ^%zmgsi
 
        MGateway Ltd - Service Integration Gateway
-       Version: 4.5; Revision 34 (5 September 2024)
+       Version: 4.5; Revision 37 (9 March 2025)
 
 ### YottaDB
 
@@ -86,7 +86,7 @@ Link all the **zmgsi** routines and check the installation:
        do ^%zmgsi
 
        MGateway Ltd - Service Integration Gateway
-       Version: 4.5; Revision 34 (5 September 2024)
+       Version: 4.5; Revision 37 (9 March 2025)
 
 
 Note that the version of **zmgsi** is successfully displayed.
@@ -256,7 +256,7 @@ The **zmgsi** server-side code will write to the following global:
 
 ## <a name="License"></a> License
 
-Copyright (c) 2018-2024 MGateway Ltd,
+Copyright (c) 2018-2025 MGateway Ltd,
 Surrey UK.                                                      
 All rights reserved.
  
@@ -382,3 +382,9 @@ Unless required by applicable law or agreed to in writing, software distributed 
 ### v3.1.103; Superserver v4.5.36 (7 October 2024)
 
 * Add support for network invocation of the **setchildnodes()** and **getchildnodes()** methods for Node.js.
+
+### v3.1.103; Superserver v4.5.37 (9 March 2025)
+
+* Add a function to detect a 'client gone' message from **mg\_web** SSE channels.
+  * Function: **$$clientgone^%zmgsis(.%sys)** returns 1 if client has aborted.
+
