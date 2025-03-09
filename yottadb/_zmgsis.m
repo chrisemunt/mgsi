@@ -3,7 +3,7 @@
  ;  ----------------------------------------------------------------------------
  ;  | %zmgsis                                                                  |
  ;  | Author: Chris Munt cmunt@mgateway.com, chris.e.munt@gmail.com            |
- ;  | Copyright (c) 2016-2024 MGateway Ltd                                     |
+ ;  | Copyright (c) 2016-2025 MGateway Ltd                                     |
  ;  | Surrey UK.                                                               |
  ;  | All rights reserved.                                                     |
  ;  |                                                                          |
@@ -74,13 +74,15 @@ a0 d vers q
  ; v4.5.33:   9 July      2024 (Introduce mg_web support for multipart payloads exceeding the DB Server maximum string length).
  ; v4.5.34:   5 September 2024 (Introduce mg_web support for payloads of type 'application/x-www-form-urlencoded' that exceed the DB Server maximum string length).
  ; v4.5.35:   6 September 2024 (Ensure that superserver processes close down gracefully on encountering network errors).
- ; v4.5.36:   7 October   2024 (Add support for network invocation of the setchildnodes() and getchildnodes() methods for Node.js)
+ ; v4.5.36:   7 October   2024 (Add support for network invocation of the setchildnodes() and getchildnodes() methods for Node.js).
+ ; v4.5.37:   9 March     2025 (Add a function to detect a 'client gone' message from mg_web SSE channels
+ ;                              Function: $$clientgone^%zmgsis(.%sys) returns 1 if client has aborted).
  ;
 v() ; version and date
  n v,r,d
  s v="4.5"
- s r=36
- s d="7 October 2024"
+ s r=37
+ s d="9 March 2025"
  q v_"."_r_"."_d
  ;
 vers ; version information
@@ -1233,6 +1235,13 @@ sse(%sys,options)
  w $$esize256^%zmgsis($l(res)+5)_$c(0)_$$esize256^%zmgsis(($g(%sys("no"))+0))_$c(0)_res d flush^%zmgsis
  q ""
  ;
+clientgone(%sys) ; see if we have received the client aborted message
+ n rc,eof
+ s rc=0
+ r eof#5:0
+ i eof=$c(255,255,255,255,255) s rc=1
+ q rc
+ ;
 stream(%sys) ; set up device for streaming the response (block/binary protocol)
  n %stream
  s %stream=""
@@ -1601,5 +1610,3 @@ eod() ; eod of data marker
  s sort=9,type=0
  q $c(0,0,0,0,(sort*20)+type)
  ;
- 
- 
